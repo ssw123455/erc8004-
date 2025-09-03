@@ -33,6 +33,29 @@ The example includes:
 | `ReputationRegistry` | Feedback authorization | ~76k gas | Pre-authorization pattern, unique auth IDs |
 | `ValidationRegistry` | Work validation | ~115k gas | Time-bounded requests, score responses |
 
+
+## Deployment Networks
+
+The contracts are deployed and verified on the following testnets:
+
+| Network | Identity Registry | Reputation Registry | Validation Registry |
+|---------|-------------------|---------------------|---------------------|
+| Ethereum Sepolia | [`0x127C86a24F46033E77C347258354ee4C739b139C`](https://sepolia.etherscan.io/address/0x127C86a24F46033E77C347258354ee4C739b139C) | [`0x57396214E6E65E9B3788DE7705D5ABf3647764e0`](https://sepolia.etherscan.io/address/0x57396214E6E65E9B3788DE7705D5ABf3647764e0) | [`0x5d332cE798e491feF2de260bddC7f24978eefD85`](https://sepolia.etherscan.io/address/0x5d332cE798e491feF2de260bddC7f24978eefD85) |
+| Base Sepolia | [`0x19fad4adD9f8C4A129A078464B22E1506275FbDd`](https://sepolia.basescan.org/address/0x19fad4adD9f8C4A129A078464B22E1506275FbDd) | [`0xA13497975fd3f6cA74081B074471C753b622C903`](https://sepolia.basescan.org/address/0xA13497975fd3f6cA74081B074471C753b622C903) | [`0x6e24aA15e134AF710C330B767018d739CAeCE293`](https://sepolia.basescan.org/address/0x6e24aA15e134AF710C330B767018d739CAeCE293) |
+| Optimism Sepolia | [`0x19fad4adD9f8C4A129A078464B22E1506275FbDd`](https://sepolia-optimistic.etherscan.io/address/0x19fad4adD9f8C4A129A078464B22E1506275FbDd) | [`0xA13497975fd3f6cA74081B074471C753b622C903`](https://sepolia-optimistic.etherscan.io/address/0xA13497975fd3f6cA74081B074471C753b622C903) | [`0x6e24aA15e134AF710C330B767018d739CAeCE293`](https://sepolia-optimistic.etherscan.io/address/0x6e24aA15e134AF710C330B767018d739CAeCE293) |
+
+### 🌐 **Web Interface**
+
+** Try the live demo**: **https://chaoschain.github.io/trustless-agents-erc-ri/**
+
+Or run locally: `cd web && python3 -m http.server 8000`
+
+- **Multi-network support** - Switch between Ethereum, Base, and Optimism Sepolia
+- **Agent registration** - Register new agents with domain and address validation
+- **Agent lookup** - Search for existing agents by domain name
+- **Real-time interaction** with deployed contracts on all supported networks
+
+
 ### Design Principles
 
 - **Gas Efficient** - Minimal on-chain storage with off-chain data pointers
@@ -248,27 +271,6 @@ Current gas usage (optimized for efficiency):
 - **Comprehensive Security Tests**: Includes tests for all security fixes
 - **Attack Vector Coverage**: Tests for impersonation, case-sensitivity, self-validation, and self-feedback attacks
 - **Edge Case Testing**: Covers boundary conditions and error scenarios
-
-## Deployment Networks
-
-The contracts are deployed and verified on the following testnets:
-
-| Network | Identity Registry | Reputation Registry | Validation Registry |
-|---------|-------------------|---------------------|---------------------|
-| Ethereum Sepolia | [`0x127C86a24F46033E77C347258354ee4C739b139C`](https://sepolia.etherscan.io/address/0x127C86a24F46033E77C347258354ee4C739b139C) | [`0x57396214E6E65E9B3788DE7705D5ABf3647764e0`](https://sepolia.etherscan.io/address/0x57396214E6E65E9B3788DE7705D5ABf3647764e0) | [`0x5d332cE798e491feF2de260bddC7f24978eefD85`](https://sepolia.etherscan.io/address/0x5d332cE798e491feF2de260bddC7f24978eefD85) |
-| Base Sepolia | [`0x19fad4adD9f8C4A129A078464B22E1506275FbDd`](https://sepolia.basescan.org/address/0x19fad4adD9f8C4A129A078464B22E1506275FbDd) | [`0xA13497975fd3f6cA74081B074471C753b622C903`](https://sepolia.basescan.org/address/0xA13497975fd3f6cA74081B074471C753b622C903) | [`0x6e24aA15e134AF710C330B767018d739CAeCE293`](https://sepolia.basescan.org/address/0x6e24aA15e134AF710C330B767018d739CAeCE293) |
-| Optimism Sepolia | [`0x19fad4adD9f8C4A129A078464B22E1506275FbDd`](https://sepolia-optimistic.etherscan.io/address/0x19fad4adD9f8C4A129A078464B22E1506275FbDd) | [`0xA13497975fd3f6cA74081B074471C753b622C903`](https://sepolia-optimistic.etherscan.io/address/0xA13497975fd3f6cA74081B074471C753b622C903) | [`0x6e24aA15e134AF710C330B767018d739CAeCE293`](https://sepolia-optimistic.etherscan.io/address/0x6e24aA15e134AF710C330B767018d739CAeCE293) |
-
-### 🌐 **Web Interface**
-
-**🚀 Try the live demo**: **https://chaoschain.github.io/trustless-agents-erc-ri/**
-
-Or run locally: `cd web && python3 -m http.server 8000`
-
-- **Multi-network support** - Switch between Ethereum, Base, and Optimism Sepolia
-- **Agent registration** - Register new agents with domain and address validation
-- **Agent lookup** - Search for existing agents by domain name
-- **Real-time interaction** with deployed contracts on all supported networks
 
 ## Documentation
 
