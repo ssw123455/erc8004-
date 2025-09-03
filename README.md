@@ -44,9 +44,9 @@ The contracts are deployed and verified on the following testnets:
 | Base Sepolia | [`0x19fad4adD9f8C4A129A078464B22E1506275FbDd`](https://sepolia.basescan.org/address/0x19fad4adD9f8C4A129A078464B22E1506275FbDd) | [`0xA13497975fd3f6cA74081B074471C753b622C903`](https://sepolia.basescan.org/address/0xA13497975fd3f6cA74081B074471C753b622C903) | [`0x6e24aA15e134AF710C330B767018d739CAeCE293`](https://sepolia.basescan.org/address/0x6e24aA15e134AF710C330B767018d739CAeCE293) |
 | Optimism Sepolia | [`0x19fad4adD9f8C4A129A078464B22E1506275FbDd`](https://sepolia-optimistic.etherscan.io/address/0x19fad4adD9f8C4A129A078464B22E1506275FbDd) | [`0xA13497975fd3f6cA74081B074471C753b622C903`](https://sepolia-optimistic.etherscan.io/address/0xA13497975fd3f6cA74081B074471C753b622C903) | [`0x6e24aA15e134AF710C330B767018d739CAeCE293`](https://sepolia-optimistic.etherscan.io/address/0x6e24aA15e134AF710C330B767018d739CAeCE293) |
 
-### 🌐 **Web Interface**
+### **Web Interface**
 
-** Try the live demo**: **https://chaoschain.github.io/trustless-agents-erc-ri/**
+**Try the live demo**: **https://chaoschain.github.io/trustless-agents-erc-ri/**
 
 Or run locally: `cd web && python3 -m http.server 8000`
 
