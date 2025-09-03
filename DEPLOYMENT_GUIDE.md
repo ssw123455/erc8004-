@@ -1,195 +1,152 @@
-# ERC-8004 Trustless Agents Deployment Guide
+# ERC-8004 Deployment Guide
 
-This guide walks you through deploying the ERC-8004 reference implementation to multiple testnets and setting up the web interface.
+This guide covers deploying the ERC-8004 Trustless Agents contracts and setting up the web interface.
 
 ## 🚀 Quick Start
 
-### 1. Environment Setup
+### 1. Prerequisites
 
-Create a `.env` file in the project root:
+- [Foundry](https://book.getfoundry.sh/getting-started/installation) installed
+- Node.js (for web config updates)
+- Wallet with testnet ETH
+- RPC endpoints for target networks
+
+### 2. Environment Setup
 
 ```bash
-# Private key for deployment (without 0x prefix)
-PRIVATE_KEY=your_private_key_here
+# Copy and configure environment
+cp .env.example .env
+# Edit .env with your settings
+```
 
-# RPC URLs for testnets
-SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_KEY
+**Required .env variables:**
+```bash
+PRIVATE_KEY=0x1234567890abcdef...  # Must include 0x prefix
+SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
 BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 ARBITRUM_SEPOLIA_RPC_URL=https://sepolia-rollup.arbitrum.io/rpc
 OPTIMISM_SEPOLIA_RPC_URL=https://sepolia.optimism.io
-
-# API Keys for contract verification
-ETHERSCAN_API_KEY=your_etherscan_api_key
-BASESCAN_API_KEY=your_basescan_api_key
-ARBISCAN_API_KEY=your_arbiscan_api_key
-OPTIMISTIC_ETHERSCAN_API_KEY=your_optimistic_etherscan_api_key
+ETHERSCAN_API_KEY=your_etherscan_key_here  # Optional, for verification
 ```
 
-### 2. Deploy to All Testnets
+### 3. Deploy to Single Network
 
 ```bash
-# Deploy to all four Sepolia testnets
-./scripts/deploy-all-testnets.sh
-```
-
-### 3. Update Web Interface
-
-```bash
-# Extract addresses from deployment logs and update web config
-node scripts/update-web-config.js
+# Deploy to Sepolia and update web config automatically
+./scripts/deploy-and-update-web.sh sepolia
 ```
 
 ### 4. Test Web Interface
 
-Open `web/index.html` in your browser to test agent registration.
+```bash
+# Start local web server
+cd web && python3 -m http.server 8000
 
-## 📋 Detailed Steps
+# Open browser to http://localhost:8000
+# Connect wallet, switch to deployed network, test registration
+```
 
-### Prerequisites
+## 📋 Manual Deployment
 
-1. **Foundry installed**: `curl -L https://foundry.paradigm.xyz | bash && foundryup`
-2. **Node.js installed**: For running the config update script
-3. **Testnet ETH**: Get from faucets for each network
-4. **API Keys**: For contract verification on block explorers
-
-### Network Information
-
-| Network | Chain ID | Faucet | Explorer |
-|---------|----------|--------|----------|
-| Ethereum Sepolia | 11155111 | [Sepolia Faucet](https://sepoliafaucet.com/) | [Sepolia Etherscan](https://sepolia.etherscan.io) |
-| Base Sepolia | 84532 | [Base Faucet](https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet) | [Base Sepolia Scan](https://sepolia.basescan.org) |
-| Arbitrum Sepolia | 421614 | [Arbitrum Faucet](https://faucet.triangleplatform.com/arbitrum/sepolia) | [Arbitrum Sepolia Scan](https://sepolia.arbiscan.io) |
-| Optimism Sepolia | 11155420 | [Optimism Faucet](https://app.optimism.io/faucet) | [Optimism Sepolia Scan](https://sepolia-optimistic.etherscan.io) |
-
-### Manual Deployment (Single Network)
-
-Deploy to a specific network:
+### Deploy Contracts Only
 
 ```bash
-# Deploy to Ethereum Sepolia
+# Deploy without web config update
 forge script script/Deploy.s.sol --rpc-url sepolia --broadcast --verify
-
-# Deploy to Base Sepolia
-forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast --verify
-
-# Deploy to Arbitrum Sepolia
-forge script script/Deploy.s.sol --rpc-url arbitrum_sepolia --broadcast --verify
-
-# Deploy to Optimism Sepolia
-forge script script/Deploy.s.sol --rpc-url optimism_sepolia --broadcast --verify
 ```
 
-### Verification (if auto-verification fails)
+### Update Web Config Manually
 
 ```bash
-# Verify contracts manually
-forge verify-contract <CONTRACT_ADDRESS> src/IdentityRegistry.sol:IdentityRegistry --chain sepolia
-forge verify-contract <CONTRACT_ADDRESS> src/ReputationRegistry.sol:ReputationRegistry --chain sepolia --constructor-args $(cast abi-encode "constructor(address)" <IDENTITY_REGISTRY_ADDRESS>)
-forge verify-contract <CONTRACT_ADDRESS> src/ValidationRegistry.sol:ValidationRegistry --chain sepolia --constructor-args $(cast abi-encode "constructor(address)" <IDENTITY_REGISTRY_ADDRESS>)
+# Update web interface with deployed addresses
+node scripts/update-web-config.js <network> <identity> <reputation> <validation>
+
+# Example:
+node scripts/update-web-config.js sepolia \
+  0x127C86a24F46033E77C347258354ee4C739b139C \
+  0x57396214E6E65E9B3788DE7705D5ABf3647764e0 \
+  0x5d332cE798e491feF2de260bddC7f24978eefD85
 ```
 
-## 🌐 Web Interface Setup
+## 🌐 Multi-Network Deployment
 
-### Features
+Deploy to all testnets:
 
-- **Multi-network support**: Switch between all four testnets
-- **Wallet integration**: MetaMask and other Web3 wallets
-- **Real-time registration**: Direct interaction with deployed contracts
-- **Network detection**: Auto-detects and switches networks
-- **Transaction tracking**: Links to block explorers
+```bash
+./scripts/deploy-and-update-web.sh sepolia
+./scripts/deploy-and-update-web.sh base_sepolia  
+./scripts/deploy-and-update-web.sh arbitrum_sepolia
+./scripts/deploy-and-update-web.sh optimism_sepolia
+```
 
-### Local Development
+## 🔧 Web Interface Configuration
 
-1. **Serve the web interface**:
-   ```bash
-   # Using Python
-   cd web && python -m http.server 8000
-   
-   # Using Node.js
-   cd web && npx serve
-   
-   # Using PHP
-   cd web && php -S localhost:8000
-   ```
+The web interface automatically loads contract addresses from `web/config.js`:
 
-2. **Open in browser**: `http://localhost:8000`
+```javascript
+window.CONTRACT_ADDRESSES = {
+    sepolia: {
+        identityRegistry: "0x...",
+        reputationRegistry: "0x...", 
+        validationRegistry: "0x..."
+    },
+    // ... other networks
+};
+```
 
-### Production Deployment
+### Configuration Loading Process
 
-Deploy to any static hosting service:
+1. `web/config.js` loads first and sets `window.CONTRACT_ADDRESSES`
+2. `web/app.js` loads and calls `loadContractAddresses()`
+3. Contract addresses are merged into network configurations
+4. UI displays deployed contracts and enables registration
 
-- **GitHub Pages**: Push `web/` directory to `gh-pages` branch
-- **Netlify**: Connect repository and set build directory to `web/`
-- **Vercel**: Deploy `web/` directory
-- **IPFS**: Upload `web/` directory for decentralized hosting
+## 📊 Deployment Verification
 
-## 📊 Gas Costs
+After deployment, verify:
 
-Estimated gas costs for registration:
+1. **Contracts deployed** - Check explorer links in deployment output
+2. **Web config updated** - Refresh browser, should show contract addresses
+3. **Registration works** - Connect wallet and test agent registration
+4. **Events emitted** - Check transaction logs for `AgentRegistered` events
 
-| Network | Registration Cost | USD (at 20 gwei) |
-|---------|------------------|-------------------|
-| Ethereum Sepolia | ~142,000 gas | ~$0.60 |
-| Base Sepolia | ~142,000 gas | ~$0.01 |
-| Arbitrum Sepolia | ~142,000 gas | ~$0.02 |
-| Optimism Sepolia | ~142,000 gas | ~$0.02 |
-
-## 🔧 Troubleshooting
+## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **"Insufficient funds"**: Get testnet ETH from faucets
-2. **"Network not supported"**: Add network to MetaMask manually
-3. **"Contract not verified"**: Run verification commands manually
-4. **"Transaction failed"**: Check if domain is already registered
+**"ethers is not defined"**
+- Refresh browser to reload ethers.js library
+- Check browser console for loading errors
 
-### Debug Commands
+**"Contracts not deployed on this network yet"**
+- Verify web config was updated: check `web/config.js`
+- Ensure browser cache is cleared
+- Check network selection matches deployed network
 
-```bash
-# Check deployment status
-forge script script/Deploy.s.sol --rpc-url sepolia --simulate
+**"Invalid API Key" during verification**
+- Add `ETHERSCAN_API_KEY` to `.env` file
+- Or skip verification: remove `--verify` flag
 
-# Test contract interaction
-cast call <IDENTITY_REGISTRY_ADDRESS> "resolveByDomain(string)" "example.com" --rpc-url sepolia
+**Deployment fails with "missing hex prefix"**
+- Ensure `PRIVATE_KEY` in `.env` starts with `0x`
 
-# Check transaction status
-cast tx <TX_HASH> --rpc-url sepolia
-```
+### Network-Specific Notes
 
-## 📈 Monitoring
+**Sepolia**: Most stable, recommended for initial testing
+**Base Sepolia**: Fast and cheap transactions  
+**Arbitrum Sepolia**: L2 scaling benefits
+**Optimism Sepolia**: Optimistic rollup features
 
-### Block Explorer Links
+## 🔒 Security Notes
 
-After deployment, monitor your contracts:
+- Never commit `.env` file to version control
+- Use separate wallets for testnet and mainnet
+- Verify contract addresses before interacting
+- Test thoroughly on testnets before mainnet deployment
 
-- **Ethereum Sepolia**: `https://sepolia.etherscan.io/address/<CONTRACT_ADDRESS>`
-- **Base Sepolia**: `https://sepolia.basescan.org/address/<CONTRACT_ADDRESS>`
-- **Arbitrum Sepolia**: `https://sepolia.arbiscan.io/address/<CONTRACT_ADDRESS>`
-- **Optimism Sepolia**: `https://sepolia-optimistic.etherscan.io/address/<CONTRACT_ADDRESS>`
+## 📚 Additional Resources
 
-### Event Monitoring
-
-Watch for `AgentRegistered` events:
-
-```bash
-cast logs --from-block latest --address <IDENTITY_REGISTRY_ADDRESS> --rpc-url sepolia
-```
-
-## 🎯 Next Steps
-
-1. **Community Announcement**: Share contract addresses on social media
-2. **Developer Docs**: Create integration guides for other projects
-3. **Bug Bounty**: Set up rewards for finding issues
-4. **Mainnet Deployment**: Deploy to production networks after testing
-5. **Ecosystem Building**: Reach out to potential integrators
-
-## 🔗 Resources
-
-- **ERC-8004 Specification**: [Ethereum Magicians Discussion](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098)
-- **GitHub Repository**: [trustless-agents-erc-ri](https://github.com/ChaosChain/trustless-agents-erc-ri)
-- **Foundry Documentation**: [book.getfoundry.sh](https://book.getfoundry.sh/)
-- **Web3 Integration**: [ethers.js Documentation](https://docs.ethers.io/v5/)
-
----
-
-**Ready to deploy?** Run `./scripts/deploy-all-testnets.sh` and let's build the trustless agent economy! 🚀
+- [ERC-8004 Specification](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098)
+- [Reference Implementation](https://github.com/ChaosChain/trustless-agents-erc-ri)
+- [Foundry Documentation](https://book.getfoundry.sh/)
+- [Web3 Frontend Guide](web/README.md)

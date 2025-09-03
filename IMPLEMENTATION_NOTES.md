@@ -102,10 +102,13 @@ All tests pass with 100% success rate.
 
 The reference implementation is designed for deployment on:
 
-- **Ethereum Mainnet**: Full production environment
-- **Sepolia Testnet**: Testing and development
-- **Base**: L2 deployment for lower costs
-- **Base Sepolia**: L2 testing environment
+| Network | Chain ID | Identity Registry | Reputation Registry | Validation Registry |
+|---------|----------|-------------------|---------------------|---------------------|
+| **Ethereum Sepolia** | 11155111 | `0x127C86a24F46033E77C347258354ee4C739b139C` | `0x57396214E6E65E9B3788DE7705D5ABf3647764e0` | `0x5d332cE798e491feF2de260bddC7f24978eefD85` |
+| **Base Sepolia** | 84532 | `0x19fad4adD9f8C4A129A078464B22E1506275FbDd` | `0xA13497975fd3f6cA74081B074471C753b622C903` | `0x6e24aA15e134AF710C330B767018d739CAeCE293` |
+| **Optimism Sepolia** | 11155420 | `0x19fad4adD9f8C4A129A078464B22E1506275FbDd` | `0xA13497975fd3f6cA74081B074471C753b622C903` | `0x6e24aA15e134AF710C330B767018d739CAeCE293` |
+
+**Note**: Base and Optimism Sepolia have identical contract addresses due to deterministic deployment from the same deployer address and nonce sequence.
 
 ### Deployment Script
 
