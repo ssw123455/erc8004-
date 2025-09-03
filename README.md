@@ -67,7 +67,7 @@ Or run locally: `cd web && python3 -m http.server 8000`
 
 ### Option 1: Try the Web Interface (Recommended)
 
-** Live Demo**: **https://chaoschain.github.io/trustless-agents-erc-ri/**
+**Live Demo**: **https://chaoschain.github.io/trustless-agents-erc-ri/**
 
 Or run locally:
 ```bash
