@@ -16,6 +16,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.backup
 
 # OS generated files
 .DS_Store
