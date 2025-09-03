@@ -44,6 +44,9 @@ The example includes:
 
 ### Option 1: Try the Web Interface (Recommended)
 
+**🚀 Live Demo**: **https://chaoschain.github.io/trustless-agents-erc-ri/**
+
+Or run locally:
 ```bash
 # Clone and run the web interface
 git clone https://github.com/ChaosChain/trustless-agents-erc-ri.git
@@ -258,7 +261,9 @@ The contracts are deployed and verified on the following testnets:
 
 ### 🌐 **Web Interface**
 
-**Try the live interface**: Clone this repo and run `cd web && python3 -m http.server 8000`
+**🚀 Try the live demo**: **https://chaoschain.github.io/trustless-agents-erc-ri/**
+
+Or run locally: `cd web && python3 -m http.server 8000`
 
 - **Multi-network support** - Switch between Ethereum, Base, and Optimism Sepolia
 - **Agent registration** - Register new agents with domain and address validation
