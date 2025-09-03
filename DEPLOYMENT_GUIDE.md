@@ -2,7 +2,7 @@
 
 This guide covers deploying the ERC-8004 Trustless Agents contracts and setting up the web interface.
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### 1. Prerequisites
 
@@ -68,7 +68,7 @@ node scripts/update-web-config.js sepolia \
   0x5d332cE798e491feF2de260bddC7f24978eefD85
 ```
 
-## 🌐 Multi-Network Deployment
+##  Multi-Network Deployment
 
 Deploy to all testnets:
 
@@ -79,7 +79,7 @@ Deploy to all testnets:
 ./scripts/deploy-and-update-web.sh optimism_sepolia
 ```
 
-## 🔧 Web Interface Configuration
+##  Web Interface Configuration
 
 The web interface automatically loads contract addresses from `web/config.js`:
 
@@ -110,7 +110,7 @@ After deployment, verify:
 3. **Registration works** - Connect wallet and test agent registration
 4. **Events emitted** - Check transaction logs for `AgentRegistered` events
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Common Issues
 
@@ -137,14 +137,14 @@ After deployment, verify:
 **Arbitrum Sepolia**: L2 scaling benefits
 **Optimism Sepolia**: Optimistic rollup features
 
-## 🔒 Security Notes
+##  Security Notes
 
 - Never commit `.env` file to version control
 - Use separate wallets for testnet and mainnet
 - Verify contract addresses before interacting
 - Test thoroughly on testnets before mainnet deployment
 
-## 📚 Additional Resources
+##  Additional Resources
 
 - [ERC-8004 Specification](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098)
 - [Reference Implementation](https://github.com/ChaosChain/trustless-agents-erc-ri)
