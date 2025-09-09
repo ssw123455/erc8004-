@@ -610,6 +610,8 @@ class TrustlessAgentsApp {
 
     async discoverAllAgents() {
         console.log('🔍 Starting agent discovery across all networks...');
+        console.log('📋 Available networks:', Object.keys(this.networks));
+        console.log('📋 Contract addresses:', this.networks);
         this.showDiscoveryStatus('Discovering agents across all networks...', 'loading');
         
         const discoveryLoading = document.getElementById('discoveryLoading');
@@ -624,10 +626,12 @@ class TrustlessAgentsApp {
 
         // Discover agents from all networks
         for (const [networkKey, network] of Object.entries(this.networks)) {
+            console.log(`🔍 Checking network ${networkKey}:`, network.contracts);
             if (network.contracts.identityRegistry) {
                 console.log(`🌐 Discovering agents on ${network.name}...`);
                 try {
                     const agents = await this.discoverAgentsFromNetwork(networkKey);
+                    console.log(`📊 Found ${agents.length} agents on ${network.name}`);
                     this.discoveredAgents.push(...agents);
                     totalAgents += agents.length;
                     
@@ -641,8 +645,10 @@ class TrustlessAgentsApp {
                         }
                     });
                 } catch (error) {
-                    console.error(`Error discovering agents on ${network.name}:`, error);
+                    console.error(`❌ Error discovering agents on ${network.name}:`, error);
                 }
+            } else {
+                console.log(`⚠️ No contract address for ${networkKey}`);
             }
         }
 
@@ -667,7 +673,10 @@ class TrustlessAgentsApp {
         const agents = [];
 
         try {
-            // Create read-only provider
+            console.log(`🔗 Connecting to ${network.name} at ${network.rpcUrl}`);
+            console.log(`📄 Contract address: ${network.contracts.identityRegistry}`);
+            
+            // Create read-only provider (ethers v5 syntax)
             const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
             const contract = new ethers.Contract(
                 network.contracts.identityRegistry,
@@ -676,6 +685,7 @@ class TrustlessAgentsApp {
             );
 
             // Get total agent count
+            console.log(`📞 Calling getAgentCount() on ${network.name}...`);
             const totalCount = await contract.getAgentCount();
             console.log(`📊 ${network.name}: ${totalCount} agents registered`);
 
