@@ -50,10 +50,20 @@ The contracts are deployed and verified on the following testnets:
 
 Or run locally: `cd web && python3 -m http.server 8000`
 
-- **Multi-network support** - Switch between Ethereum, Base, and Optimism Sepolia
-- **Agent registration** - Register new agents with domain and address validation
-- **Agent lookup** - Search for existing agents by domain name
-- **Real-time interaction** with deployed contracts on all supported networks
+
+#### **Agent Discovery Features**
+- **Quick Search** - Instant domain-based agent lookup across all networks
+- **Discover All Agents** - Browse the complete decentralized agent ecosystem  
+- **Progressive Loading** - Agents appear in real-time as they're discovered
+- **Multi-Network Support** - Ethereum, Base, and Optimism Sepolia
+- **Rich Agent Cards** - AI model info, trust models, and capabilities
+- **Advanced Filtering** - Filter by network, AI model, trust model, or search
+
+#### **Registration & Management**
+- **Agent Registration** - Register new agents with domain and address validation
+- **Wallet Integration** - MetaMask and Web3 wallet support
+- **Real-time Interaction** - Direct contract interaction on all supported networks
+- **Network Switching** - Automatic network detection and switching
 
 
 ### Design Principles
