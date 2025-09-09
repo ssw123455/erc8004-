@@ -56,10 +56,16 @@ class TrustlessAgentsApp {
          this.identityRegistryABI = [
              "function newAgent(string memory agentDomain, address agentAddress) external returns (uint256)",
              "function getAgent(uint256 agentId) external view returns (tuple(uint256 agentId, string agentDomain, address agentAddress))",
+             "function getAgentCount() external view returns (uint256)",
              "function resolveByDomain(string memory agentDomain) external view returns (tuple(uint256 agentId, string agentDomain, address agentAddress))",
              "function resolveByAddress(address agentAddress) external view returns (tuple(uint256 agentId, string agentDomain, address agentAddress))",
              "event AgentRegistered(uint256 indexed agentId, string agentDomain, address indexed agentAddress)"
          ];
+
+        // Discovery state
+        this.discoveredAgents = [];
+        this.filteredAgents = [];
+        this.currentTab = 'discovery';
 
         this.loadContractAddresses();
         this.init();
@@ -83,22 +89,82 @@ class TrustlessAgentsApp {
     async init() {
         this.setupEventListeners();
         this.renderNetworkSelector();
+        this.setupTabNavigation();
         await this.checkWalletConnection();
+        
+        // Auto-discover agents on load
+        setTimeout(() => this.discoverAllAgents(), 1000);
     }
 
          setupEventListeners() {
-         document.getElementById('connectWallet').addEventListener('click', () => this.connectWallet());
-         document.getElementById('registrationForm').addEventListener('submit', (e) => this.handleRegistration(e));
-         document.getElementById('lookupBtn').addEventListener('click', () => this.handleLookup());
+         // Check if elements exist before adding listeners
+         const connectWalletBtn = document.getElementById('connectWallet');
+         const registrationForm = document.getElementById('registrationForm');
+         const lookupBtn = document.getElementById('lookupBtn');
+         const refreshAgentsBtn = document.getElementById('refreshAgentsBtn');
+         const agentAddress = document.getElementById('agentAddress');
+         const disconnectBtn = document.getElementById('disconnectWallet');
+
+         if (connectWalletBtn) {
+             connectWalletBtn.addEventListener('click', () => this.connectWallet());
+         }
+         
+         if (registrationForm) {
+             registrationForm.addEventListener('submit', (e) => this.handleRegistration(e));
+         }
+         
+         if (lookupBtn) {
+             lookupBtn.addEventListener('click', () => this.handleLookup());
+         }
+
+         if (refreshAgentsBtn) {
+             refreshAgentsBtn.addEventListener('click', () => this.discoverAllAgents());
+         }
+
+         if (disconnectBtn) {
+             disconnectBtn.addEventListener('click', () => this.disconnectWallet());
+         }
          
          // Auto-fill agent address with connected wallet
-         document.getElementById('agentAddress').addEventListener('focus', () => {
-             if (this.signer && !document.getElementById('agentAddress').value) {
-                 this.signer.getAddress().then(address => {
-                     document.getElementById('agentAddress').value = address;
-                 });
-             }
-         });
+         if (agentAddress) {
+             agentAddress.addEventListener('focus', () => {
+                 if (this.signer && !agentAddress.value) {
+                     this.signer.getAddress().then(address => {
+                         agentAddress.value = address;
+                     });
+                 }
+             });
+         }
+
+         // Discovery filters
+         const networkFilter = document.getElementById('networkFilter');
+         const aiModelFilter = document.getElementById('aiModelFilter');
+         const trustModelFilter = document.getElementById('trustModelFilter');
+         const searchFilter = document.getElementById('searchFilter');
+
+         if (networkFilter) {
+             networkFilter.addEventListener('change', () => this.applyFilters());
+         }
+         if (aiModelFilter) {
+             aiModelFilter.addEventListener('change', () => this.applyFilters());
+         }
+         if (trustModelFilter) {
+             trustModelFilter.addEventListener('change', () => this.applyFilters());
+         }
+         if (searchFilter) {
+             searchFilter.addEventListener('input', () => this.applyFilters());
+         }
+
+         // Wallet event listeners
+         if (window.ethereum) {
+             window.ethereum.on('accountsChanged', (accounts) => {
+                 this.handleAccountsChanged(accounts);
+             });
+             
+             window.ethereum.on('chainChanged', (chainId) => {
+                 this.handleNetworkChange(chainId);
+             });
+         }
      }
 
     renderNetworkSelector() {
@@ -511,6 +577,371 @@ class TrustlessAgentsApp {
          }
      }
  
+    setupTabNavigation() {
+        const tabButtons = document.querySelectorAll('.nav-tab');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabName = button.dataset.tab;
+                this.switchTab(tabName);
+            });
+        });
+    }
+
+    switchTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+        // Update sections
+        document.querySelectorAll('.discovery-section, .register-section').forEach(section => {
+            section.style.display = 'none';
+        });
+
+        if (tabName === 'discovery') {
+            document.querySelector('.discovery-section').style.display = 'block';
+        } else if (tabName === 'register') {
+            document.querySelector('.register-section').style.display = 'block';
+        }
+
+        this.currentTab = tabName;
+    }
+
+    async discoverAllAgents() {
+        console.log('🔍 Starting agent discovery across all networks...');
+        this.showDiscoveryStatus('Discovering agents across all networks...', 'loading');
+        
+        const discoveryLoading = document.getElementById('discoveryLoading');
+        if (discoveryLoading) {
+            discoveryLoading.style.display = 'block';
+        }
+
+        this.discoveredAgents = [];
+        let totalAgents = 0;
+        const aiModels = new Set();
+        const trustModels = new Set();
+
+        // Discover agents from all networks
+        for (const [networkKey, network] of Object.entries(this.networks)) {
+            if (network.contracts.identityRegistry) {
+                console.log(`🌐 Discovering agents on ${network.name}...`);
+                try {
+                    const agents = await this.discoverAgentsFromNetwork(networkKey);
+                    this.discoveredAgents.push(...agents);
+                    totalAgents += agents.length;
+                    
+                    // Collect AI models and trust models for filters
+                    agents.forEach(agent => {
+                        if (agent.agentCard?.aiModel?.model) {
+                            aiModels.add(agent.agentCard.aiModel.model);
+                        }
+                        if (agent.agentCard?.trustModels) {
+                            agent.agentCard.trustModels.forEach(tm => trustModels.add(tm));
+                        }
+                    });
+                } catch (error) {
+                    console.error(`Error discovering agents on ${network.name}:`, error);
+                }
+            }
+        }
+
+        // Update stats
+        this.updateDiscoveryStats(totalAgents, aiModels.size, trustModels.size);
+        
+        // Update filter options
+        this.updateFilterOptions(aiModels);
+
+        // Apply filters and render
+        this.applyFilters();
+
+        if (discoveryLoading) {
+            discoveryLoading.style.display = 'none';
+        }
+
+        this.showDiscoveryStatus(`Discovered ${totalAgents} agents across ${Object.keys(this.networks).length} networks`, 'success');
+    }
+
+    async discoverAgentsFromNetwork(networkKey) {
+        const network = this.networks[networkKey];
+        const agents = [];
+
+        try {
+            // Create read-only provider
+            const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
+            const contract = new ethers.Contract(
+                network.contracts.identityRegistry,
+                this.identityRegistryABI,
+                provider
+            );
+
+            // Get total agent count
+            const totalCount = await contract.getAgentCount();
+            console.log(`📊 ${network.name}: ${totalCount} agents registered`);
+
+            // Fetch all agents
+            for (let i = 1; i <= totalCount.toNumber(); i++) {
+                try {
+                    const agent = await contract.getAgent(i);
+                    const agentData = {
+                        id: agent.agentId.toString(),
+                        domain: agent.agentDomain,
+                        address: agent.agentAddress,
+                        network: networkKey,
+                        networkName: network.name,
+                        explorer: network.explorer,
+                        agentCard: null
+                    };
+
+                    // Try to fetch AgentCard
+                    try {
+                        const agentCardUrl = `https://${agent.agentDomain}/.well-known/agent-card.json`;
+                        const response = await fetch(agentCardUrl, { 
+                            timeout: 5000,
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            agentData.agentCard = await response.json();
+                        }
+                    } catch (cardError) {
+                        console.log(`⚠️ Could not fetch AgentCard for ${agent.agentDomain}:`, cardError.message);
+                    }
+
+                    agents.push(agentData);
+                } catch (error) {
+                    console.log(`⚠️ Error fetching agent ${i} on ${network.name}:`, error.message);
+                }
+            }
+        } catch (error) {
+            console.error(`❌ Error discovering agents on ${network.name}:`, error);
+        }
+
+        return agents;
+    }
+
+    updateDiscoveryStats(totalAgents, aiModelsCount, trustModelsCount) {
+        const totalAgentsEl = document.getElementById('totalAgentsCount');
+        const aiModelsEl = document.getElementById('aiModelsCount');
+        const trustModelsEl = document.getElementById('trustModelsCount');
+
+        if (totalAgentsEl) totalAgentsEl.textContent = totalAgents;
+        if (aiModelsEl) aiModelsEl.textContent = aiModelsCount;
+        if (trustModelsEl) trustModelsEl.textContent = trustModelsCount;
+    }
+
+    updateFilterOptions(aiModels) {
+        const aiModelFilter = document.getElementById('aiModelFilter');
+        if (aiModelFilter) {
+            // Clear existing options (except "All Models")
+            while (aiModelFilter.children.length > 1) {
+                aiModelFilter.removeChild(aiModelFilter.lastChild);
+            }
+
+            // Add AI model options
+            Array.from(aiModels).sort().forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                aiModelFilter.appendChild(option);
+            });
+        }
+    }
+
+    applyFilters() {
+        const networkFilter = document.getElementById('networkFilter')?.value || '';
+        const aiModelFilter = document.getElementById('aiModelFilter')?.value || '';
+        const trustModelFilter = document.getElementById('trustModelFilter')?.value || '';
+        const searchFilter = document.getElementById('searchFilter')?.value.toLowerCase() || '';
+
+        this.filteredAgents = this.discoveredAgents.filter(agent => {
+            // Network filter
+            if (networkFilter && agent.network !== networkFilter) {
+                return false;
+            }
+
+            // AI Model filter
+            if (aiModelFilter && (!agent.agentCard?.aiModel?.model || agent.agentCard.aiModel.model !== aiModelFilter)) {
+                return false;
+            }
+
+            // Trust Model filter
+            if (trustModelFilter && (!agent.agentCard?.trustModels || !agent.agentCard.trustModels.includes(trustModelFilter))) {
+                return false;
+            }
+
+            // Search filter
+            if (searchFilter) {
+                const searchableText = [
+                    agent.domain,
+                    agent.agentCard?.name || '',
+                    agent.agentCard?.description || '',
+                    agent.address
+                ].join(' ').toLowerCase();
+                
+                if (!searchableText.includes(searchFilter)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        this.renderAgentsGrid();
+    }
+
+    renderAgentsGrid() {
+        const agentsGrid = document.getElementById('agentsGrid');
+        if (!agentsGrid) return;
+
+        if (this.filteredAgents.length === 0) {
+            agentsGrid.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280;">
+                    <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.5;"></i>
+                    <h3>No agents found</h3>
+                    <p>Try adjusting your filters or discover more agents</p>
+                </div>
+            `;
+            return;
+        }
+
+        agentsGrid.innerHTML = this.filteredAgents.map(agent => this.renderAgentCard(agent)).join('');
+    }
+
+    renderAgentCard(agent) {
+        const agentCard = agent.agentCard;
+        const hasAiModel = agentCard?.aiModel;
+        const trustModels = agentCard?.trustModels || [];
+
+        return `
+            <div class="agent-card">
+                <div class="agent-card-header">
+                    <div class="agent-id">#${agent.id}</div>
+                    <h3>${agentCard?.name || agent.domain}</h3>
+                    <div class="agent-domain">${agent.domain}</div>
+                </div>
+                
+                <div class="agent-card-body">
+                    ${agentCard?.description ? `
+                        <div class="agent-info-row">
+                            <span class="agent-info-label">Description</span>
+                            <span class="agent-info-value">${agentCard.description}</span>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="agent-info-row">
+                        <span class="agent-info-label">Address</span>
+                        <span class="agent-info-value">${agent.address.substring(0, 6)}...${agent.address.substring(38)}</span>
+                    </div>
+                    
+                    ${trustModels.length > 0 ? `
+                        <div class="agent-info-row">
+                            <span class="agent-info-label">Trust Models</span>
+                            <div class="trust-models">
+                                ${trustModels.map(tm => `<span class="trust-model">${tm}</span>`).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${hasAiModel ? `
+                        <div class="ai-model-info">
+                            <h4><i class="fas fa-brain"></i> AI Model Information</h4>
+                            <div class="ai-model-details">
+                                <div class="ai-model-detail">
+                                    <span class="label">Model:</span>
+                                    <span class="value">${agentCard.aiModel.model || 'N/A'}</span>
+                                </div>
+                                <div class="ai-model-detail">
+                                    <span class="label">Provider:</span>
+                                    <span class="value">${agentCard.aiModel.provider || 'N/A'}</span>
+                                </div>
+                                ${agentCard.aiModel.version ? `
+                                    <div class="ai-model-detail">
+                                        <span class="label">Version:</span>
+                                        <span class="value">${agentCard.aiModel.version}</span>
+                                    </div>
+                                ` : ''}
+                                ${agentCard.aiModel.contextWindow ? `
+                                    <div class="ai-model-detail">
+                                        <span class="label">Context:</span>
+                                        <span class="value">${agentCard.aiModel.contextWindow.toLocaleString()}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="agent-card-footer">
+                    <span class="network-badge">${agent.networkName}</span>
+                    <button class="view-details" onclick="window.open('${agent.explorer}/address/${agent.address}', '_blank')">
+                        <i class="fas fa-external-link-alt"></i> View
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    disconnectWallet() {
+        this.provider = null;
+        this.signer = null;
+        
+        // Reset UI
+        const walletInfo = document.getElementById('walletInfo');
+        if (walletInfo) {
+            walletInfo.classList.remove('connected');
+        }
+        
+        const walletStatus = document.getElementById('walletStatus');
+        if (walletStatus) {
+            walletStatus.textContent = 'Connect your wallet to register an agent';
+        }
+        
+        const connectBtn = document.getElementById('connectWallet');
+        const disconnectBtn = document.getElementById('disconnectWallet');
+        const registrationForm = document.getElementById('registrationForm');
+        const lookupSection = document.getElementById('lookupSection');
+        
+        if (connectBtn) connectBtn.style.display = 'inline-block';
+        if (disconnectBtn) disconnectBtn.style.display = 'none';
+        if (registrationForm) registrationForm.style.display = 'none';
+        if (lookupSection) lookupSection.style.display = 'none';
+    }
+
+    handleAccountsChanged(accounts) {
+        if (accounts.length === 0) {
+            this.disconnectWallet();
+        } else {
+            // Reconnect with new account
+            this.connectWallet();
+        }
+    }
+
+    handleNetworkChange(chainId) {
+        // Update network info if wallet is connected
+        if (this.provider) {
+            this.connectWallet();
+        }
+    }
+
+    showDiscoveryStatus(message, type) {
+        const status = document.getElementById('discoveryStatus');
+        if (status) {
+            status.className = `status ${type}`;
+            status.innerHTML = message;
+            status.style.display = 'block';
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+    }
+
      showStatus(message, type) {
         const status = document.getElementById('status');
         status.className = `status ${type}`;

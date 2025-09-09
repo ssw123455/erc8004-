@@ -238,6 +238,286 @@
             text-decoration: underline;
         }
 
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+
+        .nav-tab {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .nav-tab:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: #4f46e5;
+            border-color: white;
+        }
+
+        /* Discovery Section */
+        .discovery-section {
+            display: block;
+        }
+
+        .register-section {
+            display: none;
+        }
+
+        .discovery-filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        .filter-group select, .filter-group input {
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .agent-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .agent-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+            border-color: #4f46e5;
+        }
+
+        .agent-card-header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px;
+            position: relative;
+        }
+
+        .agent-card-header .agent-id {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .agent-card-header h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.3rem;
+        }
+
+        .agent-card-header .agent-domain {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .agent-card-body {
+            padding: 20px;
+        }
+
+        .agent-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .agent-info-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .agent-info-label {
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .agent-info-value {
+            color: #374151;
+            font-size: 0.9rem;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-word;
+        }
+
+        .trust-models {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .trust-model {
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .ai-model-info {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        .ai-model-info h4 {
+            color: #059669;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .ai-model-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 0.8rem;
+        }
+
+        .ai-model-detail {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .ai-model-detail .label {
+            color: #065f46;
+            font-weight: 600;
+        }
+
+        .ai-model-detail .value {
+            color: #047857;
+        }
+
+        .agent-card-footer {
+            padding: 15px 20px;
+            background: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .agent-card-footer .network-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .agent-card-footer .view-details {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .agent-card-footer .view-details:hover {
+            background: #3730a3;
+        }
+
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .discovery-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4f46e5;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .stat-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
@@ -250,6 +530,32 @@
             .network-selector {
                 grid-template-columns: 1fr;
             }
+
+            .nav-tabs {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .nav-tab {
+                padding: 10px 20px;
+            }
+
+            .discovery-filters {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .discovery-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .agents-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .ai-model-details {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -257,13 +563,114 @@
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-robot"></i> ERC-8004 Trustless Agents</h1>
-            <p>Register your agent on the decentralized agent economy</p>
+            <p>Discover, register, and interact with agents in the decentralized agent economy</p>
         </div>
 
-        <div class="main-card">
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="discovery">
+                <i class="fas fa-compass"></i> Discover Agents
+            </button>
+            <button class="nav-tab" data-tab="register">
+                <i class="fas fa-user-plus"></i> Register Agent
+            </button>
+        </div>
+
+        <!-- Discovery Section -->
+        <div class="main-card discovery-section" id="discoverySection">
+            <div class="card-header">
+                <h2><i class="fas fa-compass"></i> Agent Discovery</h2>
+                <p>Explore the decentralized agent ecosystem powered by ERC-8004</p>
+            </div>
+            <div class="card-body">
+                <!-- Discovery Stats -->
+                <div class="discovery-stats" id="discoveryStats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalAgentsCount">-</div>
+                        <div class="stat-label">Total Agents</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="networksCount">3</div>
+                        <div class="stat-label">Networks</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="aiModelsCount">-</div>
+                        <div class="stat-label">AI Models</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="trustModelsCount">-</div>
+                        <div class="stat-label">Trust Models</div>
+                    </div>
+                </div>
+
+                <!-- Discovery Filters -->
+                <div class="discovery-filters">
+                    <div class="filter-group">
+                        <label for="networkFilter">
+                            <i class="fas fa-network-wired"></i> Network
+                        </label>
+                        <select id="networkFilter">
+                            <option value="">All Networks</option>
+                            <option value="sepolia">Ethereum Sepolia</option>
+                            <option value="base-sepolia">Base Sepolia</option>
+                            <option value="optimism-sepolia">Optimism Sepolia</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="aiModelFilter">
+                            <i class="fas fa-brain"></i> AI Model
+                        </label>
+                        <select id="aiModelFilter">
+                            <option value="">All Models</option>
+                            <!-- Will be populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="trustModelFilter">
+                            <i class="fas fa-shield-alt"></i> Trust Model
+                        </label>
+                        <select id="trustModelFilter">
+                            <option value="">All Trust Models</option>
+                            <option value="feedback">Feedback</option>
+                            <option value="inference-validation">Inference Validation</option>
+                            <option value="tee-attestation">TEE Attestation</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="searchFilter">
+                            <i class="fas fa-search"></i> Search
+                        </label>
+                        <input type="text" id="searchFilter" placeholder="Search by domain or name...">
+                    </div>
+                </div>
+
+                <!-- Refresh Button -->
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <button class="btn" id="refreshAgentsBtn" style="width: auto; background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                        <i class="fas fa-sync-alt"></i> Discover Agents
+                    </button>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div class="loading-spinner" id="discoveryLoading" style="display: none;">
+                    <div class="spinner"></div>
+                </div>
+
+                <!-- Agents Grid -->
+                <div class="agents-grid" id="agentsGrid">
+                    <!-- Agent cards will be populated here -->
+                </div>
+
+                <!-- Discovery Status -->
+                <div class="status" id="discoveryStatus"></div>
+            </div>
+        </div>
+
+        <!-- Registration Section -->
+        <div class="main-card register-section" id="registerSection">
             <div class="card-header">
                 <h2><i class="fas fa-user-plus"></i> Agent Registration</h2>
-                <p>First working implementation of ERC-8004 standard</p>
+                <p>Register your agent in the decentralized agent economy</p>
             </div>
             <div class="card-body">
                 <div class="wallet-info" id="walletInfo">
