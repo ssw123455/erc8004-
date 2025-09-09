@@ -93,7 +93,13 @@ class TrustlessAgentsApp {
         await this.checkWalletConnection();
         
         // Auto-discover agents on load
-        setTimeout(() => this.discoverAllAgents(), 1000);
+        setTimeout(() => {
+            console.log('🚀 Auto-starting agent discovery...');
+            this.discoverAllAgents().catch(error => {
+                console.error('❌ Auto-discovery failed:', error);
+                this.showDiscoveryStatus('Auto-discovery failed: ' + error.message, 'error');
+            });
+        }, 1000);
     }
 
          setupEventListeners() {
@@ -665,6 +671,10 @@ class TrustlessAgentsApp {
             discoveryLoading.style.display = 'none';
         }
 
+        console.log(`✅ Discovery complete: ${totalAgents} total agents found`);
+        console.log(`📊 Final discovered agents:`, this.discoveredAgents);
+        console.log(`📊 Final filtered agents:`, this.filteredAgents);
+        
         this.showDiscoveryStatus(`Discovered ${totalAgents} agents across ${Object.keys(this.networks).length} networks`, 'success');
     }
 
@@ -706,12 +716,17 @@ class TrustlessAgentsApp {
                     // Try to fetch AgentCard
                     try {
                         const agentCardUrl = `https://${agent.agentDomain}/.well-known/agent-card.json`;
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 5000);
+                        
                         const response = await fetch(agentCardUrl, { 
-                            timeout: 5000,
+                            signal: controller.signal,
                             headers: {
                                 'Accept': 'application/json'
                             }
                         });
+                        
+                        clearTimeout(timeoutId);
                         
                         if (response.ok) {
                             agentData.agentCard = await response.json();
@@ -803,10 +818,15 @@ class TrustlessAgentsApp {
     }
 
     renderAgentsGrid() {
+        console.log(`🎨 Rendering agents grid with ${this.filteredAgents.length} agents`);
         const agentsGrid = document.getElementById('agentsGrid');
-        if (!agentsGrid) return;
+        if (!agentsGrid) {
+            console.error('❌ agentsGrid element not found!');
+            return;
+        }
 
         if (this.filteredAgents.length === 0) {
+            console.log('⚠️ No filtered agents to display');
             agentsGrid.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280;">
                     <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.5;"></i>
@@ -817,6 +837,7 @@ class TrustlessAgentsApp {
             return;
         }
 
+        console.log('✅ Rendering agent cards...');
         agentsGrid.innerHTML = this.filteredAgents.map(agent => this.renderAgentCard(agent)).join('');
     }
 
