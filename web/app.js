@@ -93,15 +93,8 @@ class TrustlessAgentsApp {
         this.setupTabNavigation();
         await this.checkWalletConnection();
         
-        // Auto-discover agents on load
-        setTimeout(() => {
-            console.log('🚀 Auto-starting agent discovery...');
-            this.discoverAllAgents().catch(error => {
-                console.error('❌ Auto-discovery failed:', error);
-                this.showDiscoveryStatus('Auto-discovery failed: ' + error.message, 'error');
-                this.isDiscovering = false;
-            });
-        }, 1000);
+        // Don't auto-discover - let users choose their exploration method
+        console.log('🎯 ERC-8004 Agent Explorer ready - choose Quick Search or Discover All');
     }
 
          setupEventListeners() {
@@ -127,15 +120,16 @@ class TrustlessAgentsApp {
 
          if (refreshAgentsBtn) {
              refreshAgentsBtn.addEventListener('click', () => {
-                 console.log('🔄 Manual discovery triggered');
+                 console.log('🔄 Full discovery triggered');
                  this.discoverAllAgents();
              });
          }
 
-         const debugBtn = document.getElementById('debugBtn');
-         if (debugBtn) {
-             debugBtn.addEventListener('click', () => this.showDebugInfo());
+         const quickSearchBtn = document.getElementById('quickSearchBtn');
+         if (quickSearchBtn) {
+             quickSearchBtn.addEventListener('click', () => this.performQuickSearch());
          }
+
 
          if (disconnectBtn) {
              disconnectBtn.addEventListener('click', () => this.disconnectWallet());
@@ -169,6 +163,12 @@ class TrustlessAgentsApp {
          }
          if (searchFilter) {
              searchFilter.addEventListener('input', () => this.applyFilters());
+             searchFilter.addEventListener('keypress', (e) => {
+                 if (e.key === 'Enter') {
+                     e.preventDefault();
+                     this.performQuickSearch();
+                 }
+             });
          }
 
          // Wallet event listeners
@@ -632,8 +632,6 @@ class TrustlessAgentsApp {
         
         this.isDiscovering = true;
         console.log('🔍 Starting agent discovery across all networks...');
-        console.log('📋 Available networks:', Object.keys(this.networks));
-        console.log('📋 Contract addresses:', this.networks);
         this.showDiscoveryStatus('Discovering agents across all networks...', 'loading');
         
         const discoveryLoading = document.getElementById('discoveryLoading');
@@ -648,9 +646,10 @@ class TrustlessAgentsApp {
 
         // Discover agents from all networks
         for (const [networkKey, network] of Object.entries(this.networks)) {
-            console.log(`🔍 Checking network ${networkKey}:`, network.contracts);
             if (network.contracts.identityRegistry) {
                 console.log(`🌐 Discovering agents on ${network.name}...`);
+                this.showDiscoveryStatus(`Discovering agents on ${network.name}...`, 'loading');
+                
                 try {
                     const agents = await this.discoverAgentsFromNetwork(networkKey);
                     console.log(`📊 Found ${agents.length} agents on ${network.name}`);
@@ -666,11 +665,14 @@ class TrustlessAgentsApp {
                             agent.agentCard.trustModels.forEach(tm => trustModels.add(tm));
                         }
                     });
+                    
+                    // Update stats and render progressively
+                    this.updateDiscoveryStats(totalAgents, aiModels.size, trustModels.size);
+                    this.updateFilterOptions(aiModels);
+                    this.applyFilters(); // Show agents as they're discovered
                 } catch (error) {
                     console.error(`❌ Error discovering agents on ${network.name}:`, error);
                 }
-            } else {
-                console.log(`⚠️ No contract address for ${networkKey}`);
             }
         }
 
@@ -688,11 +690,141 @@ class TrustlessAgentsApp {
         }
 
         console.log(`✅ Discovery complete: ${totalAgents} total agents found`);
-        console.log(`📊 Final discovered agents:`, this.discoveredAgents);
-        console.log(`📊 Final filtered agents:`, this.filteredAgents);
         
         this.showDiscoveryStatus(`Discovered ${totalAgents} agents across ${Object.keys(this.networks).length} networks`, 'success');
         this.isDiscovering = false;
+    }
+
+    async performQuickSearch() {
+        const searchInput = document.getElementById('searchFilter');
+        const searchTerm = searchInput?.value?.trim();
+        
+        if (!searchTerm) {
+            this.showDiscoveryStatus('Please enter a domain or name to search', 'error');
+            if (searchInput) searchInput.focus();
+            return;
+        }
+
+        console.log(`🔍 Quick search for: "${searchTerm}"`);
+        this.showDiscoveryStatus(`Searching for "${searchTerm}"...`, 'loading');
+        
+        const discoveryLoading = document.getElementById('discoveryLoading');
+        if (discoveryLoading) {
+            discoveryLoading.style.display = 'block';
+        }
+
+        const searchResults = [];
+        let networksSearched = 0;
+        let totalNetworks = 0;
+
+        // Count networks with contracts
+        for (const [networkKey, network] of Object.entries(this.networks)) {
+            if (network.contracts.identityRegistry) {
+                totalNetworks++;
+            }
+        }
+
+        // Search across all networks
+        for (const [networkKey, network] of Object.entries(this.networks)) {
+            if (network.contracts.identityRegistry) {
+                try {
+                    networksSearched++;
+                    this.showDiscoveryStatus(`Searching ${network.name}... (${networksSearched}/${totalNetworks})`, 'loading');
+                    
+                    const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
+                    const contract = new ethers.Contract(
+                        network.contracts.identityRegistry,
+                        this.identityRegistryABI,
+                        provider
+                    );
+
+                    // Try exact domain match first
+                    try {
+                        const result = await contract.callStatic.resolveByDomain(searchTerm);
+                        if (result.agentId && result.agentId.gt(0)) {
+                            const agentData = await this.buildAgentData(result, networkKey, network);
+                            searchResults.push(agentData);
+                            console.log(`✅ Found exact match "${searchTerm}" on ${network.name}`);
+                        }
+                    } catch (error) {
+                        // Exact match not found, try case variations
+                        const variations = [
+                            searchTerm.toLowerCase(),
+                            searchTerm.toUpperCase(),
+                            searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1).toLowerCase()
+                        ];
+
+                        for (const variation of variations) {
+                            if (variation === searchTerm) continue; // Skip original
+                            try {
+                                const result = await contract.callStatic.resolveByDomain(variation);
+                                if (result.agentId && result.agentId.gt(0)) {
+                                    const agentData = await this.buildAgentData(result, networkKey, network);
+                                    searchResults.push(agentData);
+                                    console.log(`✅ Found case variation "${variation}" on ${network.name}`);
+                                    break; // Found one variation, stop trying others
+                                }
+                            } catch (variationError) {
+                                // This variation not found either
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error(`❌ Error searching ${network.name}:`, error);
+                }
+            }
+        }
+
+        if (discoveryLoading) {
+            discoveryLoading.style.display = 'none';
+        }
+
+        // Show results
+        if (searchResults.length > 0) {
+            this.filteredAgents = searchResults;
+            this.discoveredAgents = [...searchResults]; // Update discovered agents too
+            this.renderAgentsGrid();
+            this.updateDiscoveryStats(searchResults.length, 0, 0);
+            this.showDiscoveryStatus(`Found ${searchResults.length} result(s) for "${searchTerm}"`, 'success');
+        } else {
+            this.filteredAgents = [];
+            this.renderAgentsGrid();
+            this.showDiscoveryStatus(`No agents found for "${searchTerm}". Try the full discovery to browse all agents.`, 'error');
+        }
+    }
+
+    async buildAgentData(contractResult, networkKey, network) {
+        const agentData = {
+            id: contractResult.agentId.toString(),
+            domain: contractResult.agentDomain,
+            address: contractResult.agentAddress,
+            network: networkKey,
+            networkName: network.name,
+            explorer: network.explorer,
+            agentCard: null
+        };
+
+        // Try to fetch AgentCard
+        try {
+            const agentCardUrl = `https://${contractResult.agentDomain}/.well-known/agent-card.json`;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            const response = await fetch(agentCardUrl, { 
+                signal: controller.signal,
+                headers: { 'Accept': 'application/json' }
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                agentData.agentCard = await response.json();
+            }
+        } catch (cardError) {
+            // AgentCard fetch failed - that's okay
+        }
+
+        return agentData;
     }
 
     async discoverAgentsFromNetwork(networkKey) {
@@ -700,9 +832,6 @@ class TrustlessAgentsApp {
         const agents = [];
 
         try {
-            console.log(`🔗 Connecting to ${network.name} at ${network.rpcUrl}`);
-            console.log(`📄 Contract address: ${network.contracts.identityRegistry}`);
-            
             // Create read-only provider (ethers v5 syntax)
             const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
             const contract = new ethers.Contract(
@@ -712,7 +841,6 @@ class TrustlessAgentsApp {
             );
 
             // Get total agent count
-            console.log(`📞 Calling getAgentCount() on ${network.name}...`);
             const totalCount = await contract.getAgentCount();
             console.log(`📊 ${network.name}: ${totalCount} agents registered`);
 
@@ -749,7 +877,8 @@ class TrustlessAgentsApp {
                             agentData.agentCard = await response.json();
                         }
                     } catch (cardError) {
-                        console.log(`⚠️ Could not fetch AgentCard for ${agent.agentDomain}:`, cardError.message);
+                        // AgentCard fetch failures are expected and normal
+                        // Most domains don't host AgentCards yet
                     }
 
                     agents.push(agentData);
@@ -835,7 +964,6 @@ class TrustlessAgentsApp {
     }
 
     renderAgentsGrid() {
-        console.log(`🎨 Rendering agents grid with ${this.filteredAgents.length} agents`);
         const agentsGrid = document.getElementById('agentsGrid');
         if (!agentsGrid) {
             console.error('❌ agentsGrid element not found!');
@@ -843,18 +971,33 @@ class TrustlessAgentsApp {
         }
 
         if (this.filteredAgents.length === 0) {
-            console.log('⚠️ No filtered agents to display');
-            agentsGrid.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280;">
-                    <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.5;"></i>
-                    <h3>No agents found</h3>
-                    <p>Try adjusting your filters or discover more agents</p>
-                </div>
-            `;
+            const message = this.discoveredAgents.length === 0 
+                ? `<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280;">
+                    <i class="fas fa-compass" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.5;"></i>
+                    <h3>Welcome to the ERC-8004 Agent Explorer</h3>
+                    <p style="margin-bottom: 15px;">Choose your exploration method:</p>
+                    <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 10px; max-width: 200px;">
+                            <i class="fas fa-search" style="color: #7c3aed; margin-bottom: 8px;"></i>
+                            <h4 style="margin: 0 0 5px 0; color: #374151;">Quick Search</h4>
+                            <p style="margin: 0; font-size: 0.9rem;">Search for specific agents by domain name</p>
+                        </div>
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 10px; max-width: 200px;">
+                            <i class="fas fa-compass" style="color: #059669; margin-bottom: 8px;"></i>
+                            <h4 style="margin: 0 0 5px 0; color: #374151;">Discover All</h4>
+                            <p style="margin: 0; font-size: 0.9rem;">Browse all registered agents across networks</p>
+                        </div>
+                    </div>
+                   </div>`
+                : `<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280;">
+                    <i class="fas fa-filter" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.5;"></i>
+                    <h3>No agents match your filters</h3>
+                    <p>Try adjusting your filters to see more agents</p>
+                   </div>`;
+            agentsGrid.innerHTML = message;
             return;
         }
 
-        console.log('✅ Rendering agent cards...');
         agentsGrid.innerHTML = this.filteredAgents.map(agent => this.renderAgentCard(agent)).join('');
     }
 
@@ -974,32 +1117,6 @@ class TrustlessAgentsApp {
         }
     }
 
-    showDebugInfo() {
-        console.log('🐛 DEBUG INFO:');
-        console.log('📊 Discovered agents:', this.discoveredAgents.length);
-        console.log('📊 Filtered agents:', this.filteredAgents.length);
-        console.log('🔍 Is discovering:', this.isDiscovering);
-        console.log('📋 Networks:', this.networks);
-        console.log('🎯 Current tab:', this.currentTab);
-        
-        // Check DOM elements
-        const agentsGrid = document.getElementById('agentsGrid');
-        console.log('🎨 Agents grid element:', agentsGrid);
-        console.log('🎨 Agents grid innerHTML length:', agentsGrid?.innerHTML?.length || 0);
-        
-        // Show first few agents
-        if (this.discoveredAgents.length > 0) {
-            console.log('👤 First 3 discovered agents:', this.discoveredAgents.slice(0, 3));
-        }
-        
-        if (this.filteredAgents.length > 0) {
-            console.log('🔍 First 3 filtered agents:', this.filteredAgents.slice(0, 3));
-        }
-        
-        // Force re-render
-        console.log('🔄 Force re-rendering...');
-        this.applyFilters();
-    }
 
     showDiscoveryStatus(message, type) {
         const status = document.getElementById('discoveryStatus');
