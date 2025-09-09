@@ -66,6 +66,7 @@ class TrustlessAgentsApp {
         this.discoveredAgents = [];
         this.filteredAgents = [];
         this.currentTab = 'discovery';
+        this.isDiscovering = false;
 
         this.loadContractAddresses();
         this.init();
@@ -98,6 +99,7 @@ class TrustlessAgentsApp {
             this.discoverAllAgents().catch(error => {
                 console.error('❌ Auto-discovery failed:', error);
                 this.showDiscoveryStatus('Auto-discovery failed: ' + error.message, 'error');
+                this.isDiscovering = false;
             });
         }, 1000);
     }
@@ -124,7 +126,15 @@ class TrustlessAgentsApp {
          }
 
          if (refreshAgentsBtn) {
-             refreshAgentsBtn.addEventListener('click', () => this.discoverAllAgents());
+             refreshAgentsBtn.addEventListener('click', () => {
+                 console.log('🔄 Manual discovery triggered');
+                 this.discoverAllAgents();
+             });
+         }
+
+         const debugBtn = document.getElementById('debugBtn');
+         if (debugBtn) {
+             debugBtn.addEventListener('click', () => this.showDebugInfo());
          }
 
          if (disconnectBtn) {
@@ -615,6 +625,12 @@ class TrustlessAgentsApp {
     }
 
     async discoverAllAgents() {
+        if (this.isDiscovering) {
+            console.log('⚠️ Discovery already in progress, skipping...');
+            return;
+        }
+        
+        this.isDiscovering = true;
         console.log('🔍 Starting agent discovery across all networks...');
         console.log('📋 Available networks:', Object.keys(this.networks));
         console.log('📋 Contract addresses:', this.networks);
@@ -676,6 +692,7 @@ class TrustlessAgentsApp {
         console.log(`📊 Final filtered agents:`, this.filteredAgents);
         
         this.showDiscoveryStatus(`Discovered ${totalAgents} agents across ${Object.keys(this.networks).length} networks`, 'success');
+        this.isDiscovering = false;
     }
 
     async discoverAgentsFromNetwork(networkKey) {
@@ -955,6 +972,33 @@ class TrustlessAgentsApp {
         if (this.provider) {
             this.connectWallet();
         }
+    }
+
+    showDebugInfo() {
+        console.log('🐛 DEBUG INFO:');
+        console.log('📊 Discovered agents:', this.discoveredAgents.length);
+        console.log('📊 Filtered agents:', this.filteredAgents.length);
+        console.log('🔍 Is discovering:', this.isDiscovering);
+        console.log('📋 Networks:', this.networks);
+        console.log('🎯 Current tab:', this.currentTab);
+        
+        // Check DOM elements
+        const agentsGrid = document.getElementById('agentsGrid');
+        console.log('🎨 Agents grid element:', agentsGrid);
+        console.log('🎨 Agents grid innerHTML length:', agentsGrid?.innerHTML?.length || 0);
+        
+        // Show first few agents
+        if (this.discoveredAgents.length > 0) {
+            console.log('👤 First 3 discovered agents:', this.discoveredAgents.slice(0, 3));
+        }
+        
+        if (this.filteredAgents.length > 0) {
+            console.log('🔍 First 3 filtered agents:', this.filteredAgents.slice(0, 3));
+        }
+        
+        // Force re-render
+        console.log('🔄 Force re-rendering...');
+        this.applyFilters();
     }
 
     showDiscoveryStatus(message, type) {
