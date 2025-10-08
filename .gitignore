@@ -78,3 +78,10 @@ typechain-types/
 
 # Gas reports
 .gas-snapshot 
+
+# Documentation
+*.md
+!README.md
+!CHANGELOG_V1.md
+!SPEC_COMPLIANCE_CHECKLIST.md
+!IMPLEMENTATION_STATUS.md

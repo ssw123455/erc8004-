@@ -1,291 +1,618 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
+import "forge-std/Test.sol";
 import "../src/IdentityRegistry.sol";
 import "../src/ReputationRegistry.sol";
-import "../src/interfaces/IReputationRegistry.sol";
 
 /**
  * @title ReputationRegistryTest
- * @dev Comprehensive test suite for the ReputationRegistry contract
+ * @dev Comprehensive test suite for ERC-8004 v1.0 Reputation Registry
+ * @author ChaosChain Labs
  */
 contract ReputationRegistryTest is Test {
     IdentityRegistry public identityRegistry;
     ReputationRegistry public reputationRegistry;
     
-    // Test accounts
-    address public alice = makeAddr("alice");
-    address public bob = makeAddr("bob");
-    address public charlie = makeAddr("charlie");
+    uint256 public agentOwnerPk = 0xA11CE;
+    uint256 public clientPk = 0xB0B;
     
-    // Test domains
-    string constant ALICE_DOMAIN = "alice.example.com";
-    string constant BOB_DOMAIN = "bob.example.com";
-    string constant CHARLIE_DOMAIN = "charlie.example.com";
+    address public agentOwner;
+    address public client;
+    address public client2 = address(0x3);
+    address public responder = address(0x4);
     
-    // Agent IDs
-    uint256 public aliceId;
-    uint256 public bobId;
-    uint256 public charlieId;
+    uint256 public agentId;
     
-    event AuthFeedback(
-        uint256 indexed agentClientId,
-        uint256 indexed agentServerId,
-        bytes32 indexed feedbackAuthId
+    string constant TOKEN_URI = "ipfs://QmTest/agent.json";
+    string constant FEEDBACK_URI = "ipfs://QmFeedback/feedback.json";
+    string constant RESPONSE_URI = "ipfs://QmResponse/response.json";
+    
+    bytes32 constant TAG1 = bytes32("quality");
+    bytes32 constant TAG2 = bytes32("speed");
+    
+    event NewFeedback(
+        uint256 indexed agentId,
+        address indexed clientAddress,
+        uint8 score,
+        bytes32 indexed tag1,
+        bytes32 tag2,
+        string fileuri,
+        bytes32 filehash
+    );
+    
+    event FeedbackRevoked(
+        uint256 indexed agentId,
+        address indexed clientAddress,
+        uint64 indexed feedbackIndex
+    );
+    
+    event ResponseAppended(
+        uint256 indexed agentId,
+        address indexed clientAddress,
+        uint64 feedbackIndex,
+        address indexed responder,
+        string responseUri
     );
 
     function setUp() public {
-        // Deploy contracts
+        // Derive addresses from private keys
+        agentOwner = vm.addr(agentOwnerPk);
+        client = vm.addr(clientPk);
+        
         identityRegistry = new IdentityRegistry();
         reputationRegistry = new ReputationRegistry(address(identityRegistry));
         
-        // Fund test accounts
-        vm.deal(alice, 1 ether);
-        vm.deal(bob, 1 ether);
-        vm.deal(charlie, 1 ether);
-        
-        // Register test agents
-        vm.prank(alice);
-        aliceId = identityRegistry.newAgent(ALICE_DOMAIN, alice);
-        
-        vm.prank(bob);
-        bobId = identityRegistry.newAgent(BOB_DOMAIN, bob);
-        
-        vm.prank(charlie);
-        charlieId = identityRegistry.newAgent(CHARLIE_DOMAIN, charlie);
+        // Register agent
+        vm.prank(agentOwner);
+        agentId = identityRegistry.register(TOKEN_URI);
     }
-
-    // ============ Feedback Authorization Tests ============
-
-    function test_AcceptFeedback_Success() public {
-        // Bob (server) authorizes Alice (client) to provide feedback
-        vm.prank(bob);
+    
+    // ============ Helper Functions ============
+    
+    function _createFeedbackAuth(
+        uint256 _agentId,
+        address _clientAddress,
+        uint64 _indexLimit,
+        uint256 _expiry,
+        address _signerAddress,
+        uint256 _signerPk
+    ) internal view returns (bytes memory) {
+        // Encode the struct as per ERC-8004 v1.0 spec
+        bytes32 structHash = keccak256(abi.encode(
+            _agentId,
+            _clientAddress,
+            _indexLimit,
+            _expiry,
+            block.chainid,
+            address(identityRegistry),
+            _signerAddress
+        ));
         
-        vm.expectEmit(true, true, false, false);
-        emit AuthFeedback(aliceId, bobId, bytes32(0)); // bytes32(0) as placeholder since ID is generated
+        // EIP-191 personal sign format: "\x19Ethereum Signed Message:\n32" + hash
+        bytes32 messageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", structHash));
         
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+        // Sign the message hash
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_signerPk, messageHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
         
-        // Verify authorization exists
-        (bool isAuthorized, bytes32 feedbackAuthId) = reputationRegistry.isFeedbackAuthorized(aliceId, bobId);
-        assertTrue(isAuthorized);
-        assertTrue(feedbackAuthId != bytes32(0));
+        // Encode the struct fields + signature
+        return abi.encodePacked(
+            abi.encode(
+                _agentId,
+                _clientAddress,
+                _indexLimit,
+                _expiry,
+                block.chainid,
+                address(identityRegistry),
+                _signerAddress
+            ),
+            signature
+        );
     }
-
-    function test_AcceptFeedback_MultipleClients() public {
-        // Bob authorizes Alice
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+    
+    // ============ Give Feedback Tests ============
+    
+    function test_GiveFeedback_Success() public {
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
         
-        // Bob authorizes Charlie
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(charlieId, bobId);
+        vm.prank(client);
+        vm.expectEmit(true, true, true, true);
+        emit NewFeedback(agentId, client, 95, TAG1, TAG2, FEEDBACK_URI, keccak256("test"));
         
-        // Verify both authorizations
-        (bool aliceAuthorized,) = reputationRegistry.isFeedbackAuthorized(aliceId, bobId);
-        (bool charlieAuthorized,) = reputationRegistry.isFeedbackAuthorized(charlieId, bobId);
+        reputationRegistry.giveFeedback(
+            agentId,
+            95,
+            TAG1,
+            TAG2,
+            FEEDBACK_URI,
+            keccak256("test"),
+            feedbackAuth
+        );
         
-        assertTrue(aliceAuthorized);
-        assertTrue(charlieAuthorized);
+        // Verify feedback was stored
+        (uint8 score, bytes32 tag1, bytes32 tag2, bool isRevoked) = reputationRegistry.readFeedback(agentId, client, 1);
+        assertEq(score, 95);
+        assertEq(tag1, TAG1);
+        assertEq(tag2, TAG2);
+        assertFalse(isRevoked);
         
-        // Verify different auth IDs
-        bytes32 aliceAuthId = reputationRegistry.getFeedbackAuthId(aliceId, bobId);
-        bytes32 charlieAuthId = reputationRegistry.getFeedbackAuthId(charlieId, bobId);
-        assertTrue(aliceAuthId != charlieAuthId);
+        // Verify client was added
+        address[] memory clients = reputationRegistry.getClients(agentId);
+        assertEq(clients.length, 1);
+        assertEq(clients[0], client);
+        
+        // Verify last index
+        assertEq(reputationRegistry.getLastIndex(agentId, client), 1);
     }
-
-    function test_AcceptFeedback_RevertClientAgentNotFound() public {
-        vm.prank(bob);
-        vm.expectRevert(IReputationRegistry.AgentNotFound.selector);
-        reputationRegistry.acceptFeedback(999, bobId); // Non-existent client
+    
+    function test_GiveFeedback_MultipleFeedbacks() public {
+        // First feedback
+        bytes memory feedbackAuth1 = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(client);
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, FEEDBACK_URI, bytes32(0), feedbackAuth1);
+        
+        // Second feedback
+        bytes memory feedbackAuth2 = _createFeedbackAuth(
+            agentId,
+            client,
+            2,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(client);
+        reputationRegistry.giveFeedback(agentId, 95, TAG1, TAG2, FEEDBACK_URI, bytes32(0), feedbackAuth2);
+        
+        assertEq(reputationRegistry.getLastIndex(agentId, client), 2);
+        
+        (uint8 score1,,,) = reputationRegistry.readFeedback(agentId, client, 1);
+        (uint8 score2,,,) = reputationRegistry.readFeedback(agentId, client, 2);
+        
+        assertEq(score1, 90);
+        assertEq(score2, 95);
     }
-
-    function test_AcceptFeedback_RevertServerAgentNotFound() public {
-        vm.prank(bob);
-        vm.expectRevert(IReputationRegistry.AgentNotFound.selector);
-        reputationRegistry.acceptFeedback(aliceId, 999); // Non-existent server
+    
+    function test_GiveFeedback_MultipleClients() public {
+        // Client 1 feedback
+        bytes memory feedbackAuth1 = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(client);
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth1);
+        
+        // Client 2 feedback
+        bytes memory feedbackAuth2 = _createFeedbackAuth(
+            agentId,
+            client2,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(client2);
+        reputationRegistry.giveFeedback(agentId, 85, TAG1, TAG2, "", bytes32(0), feedbackAuth2);
+        
+        address[] memory clients = reputationRegistry.getClients(agentId);
+        assertEq(clients.length, 2);
     }
-
-    function test_AcceptFeedback_RevertUnauthorized() public {
-        // Alice tries to authorize feedback for Bob's services (only Bob should be able to do this)
-        vm.prank(alice);
-        vm.expectRevert(IReputationRegistry.UnauthorizedFeedback.selector);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+    
+    function test_GiveFeedback_ScoreTooHigh_Reverts() public {
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(client);
+        vm.expectRevert("Score must be 0-100");
+        reputationRegistry.giveFeedback(agentId, 101, TAG1, TAG2, "", bytes32(0), feedbackAuth);
     }
-
-    function test_AcceptFeedback_RevertAlreadyAuthorized() public {
-        // Bob authorizes Alice
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+    
+    function test_GiveFeedback_NonExistentAgent_Reverts() public {
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            999,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
         
-        // Try to authorize again
-        vm.prank(bob);
-        vm.expectRevert(IReputationRegistry.FeedbackAlreadyAuthorized.selector);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+        vm.prank(client);
+        vm.expectRevert("Agent does not exist");
+        reputationRegistry.giveFeedback(999, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
     }
-
-    function test_AcceptFeedback_RevertSelfFeedback() public {
-        // SECURITY: Self-feedback should be prevented to maintain integrity
-        vm.prank(alice);
-        vm.expectRevert(IReputationRegistry.SelfFeedbackNotAllowed.selector);
-        reputationRegistry.acceptFeedback(aliceId, aliceId);
+    
+    function test_GiveFeedback_WrongAgentId_Reverts() public {
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            999, // Wrong agent ID in auth
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(client);
+        vm.expectRevert("AgentId mismatch");
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
     }
-
-    // ============ Feedback Query Tests ============
-
-    function test_IsFeedbackAuthorized_True() public {
-        // Authorize feedback
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+    
+    function test_GiveFeedback_WrongClientAddress_Reverts() public {
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client2, // Wrong client in auth
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
         
-        // Check authorization
-        (bool isAuthorized, bytes32 feedbackAuthId) = reputationRegistry.isFeedbackAuthorized(aliceId, bobId);
-        assertTrue(isAuthorized);
-        assertTrue(feedbackAuthId != bytes32(0));
+        vm.prank(client);
+        vm.expectRevert("ClientAddress mismatch");
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
     }
-
-    function test_IsFeedbackAuthorized_False() public {
-        // Check non-existent authorization
-        (bool isAuthorized, bytes32 feedbackAuthId) = reputationRegistry.isFeedbackAuthorized(aliceId, bobId);
-        assertFalse(isAuthorized);
-        assertEq(feedbackAuthId, bytes32(0));
+    
+    function test_GiveFeedback_Expired_Reverts() public {
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp - 1, // Expired
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(client);
+        vm.expectRevert("Authorization expired");
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
     }
-
-    function test_GetFeedbackAuthId_Exists() public {
-        // Authorize feedback
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+    
+    function test_GiveFeedback_IndexLimitExceeded_Reverts() public {
+        // Give first feedback
+        bytes memory feedbackAuth1 = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
         
-        // Get auth ID
-        bytes32 feedbackAuthId = reputationRegistry.getFeedbackAuthId(aliceId, bobId);
-        assertTrue(feedbackAuthId != bytes32(0));
+        vm.prank(client);
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth1);
+        
+        // Try to give second feedback with indexLimit = 1
+        bytes memory feedbackAuth2 = _createFeedbackAuth(
+            agentId,
+            client,
+            1, // Index limit too low
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(client);
+        vm.expectRevert("Index limit exceeded");
+        reputationRegistry.giveFeedback(agentId, 95, TAG1, TAG2, "", bytes32(0), feedbackAuth2);
     }
-
-    function test_GetFeedbackAuthId_NotExists() public {
-        // Get auth ID for non-existent authorization
-        bytes32 feedbackAuthId = reputationRegistry.getFeedbackAuthId(aliceId, bobId);
-        assertEq(feedbackAuthId, bytes32(0));
+    
+    function test_GiveFeedback_InvalidSigner_Reverts() public {
+        // Sign with wrong private key
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            clientPk // Wrong private key
+        );
+        
+        vm.prank(client);
+        vm.expectRevert("Invalid signature");
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
     }
-
-    // ============ Integration Tests ============
-
-    function test_Integration_FullFeedbackFlow() public {
-        // 1. Server agent (Bob) accepts a task and authorizes client (Alice) for feedback
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+    
+    // ============ Revoke Feedback Tests ============
+    
+    function test_RevokeFeedback_Success() public {
+        // Give feedback first
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
         
-        // 2. Verify authorization exists
-        (bool isAuthorized, bytes32 feedbackAuthId) = reputationRegistry.isFeedbackAuthorized(aliceId, bobId);
-        assertTrue(isAuthorized);
-        assertTrue(feedbackAuthId != bytes32(0));
+        vm.prank(client);
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
         
-        // 3. Get the auth ID for off-chain feedback submission
-        bytes32 retrievedAuthId = reputationRegistry.getFeedbackAuthId(aliceId, bobId);
-        assertEq(retrievedAuthId, feedbackAuthId);
+        // Revoke it
+        vm.prank(client);
+        vm.expectEmit(true, true, true, false);
+        emit FeedbackRevoked(agentId, client, 1);
         
-        // 4. Verify the auth ID can be used to identify the client-server pair
-        // (In a real implementation, the client would submit feedback off-chain
-        // using this feedbackAuthId, which gets referenced in their AgentCard's FeedbackDataURI)
+        reputationRegistry.revokeFeedback(agentId, 1);
+        
+        // Verify revoked
+        (,,,bool isRevoked) = reputationRegistry.readFeedback(agentId, client, 1);
+        assertTrue(isRevoked);
     }
-
-    function test_Integration_MultipleServersSameClient() public {
-        // Alice works with multiple servers (Bob and Charlie)
-        
-        // Bob authorizes Alice for feedback
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
-        
-        // Charlie authorizes Alice for feedback
-        vm.prank(charlie);
-        reputationRegistry.acceptFeedback(aliceId, charlieId);
-        
-        // Verify both authorizations exist with different auth IDs
-        bytes32 bobAuthId = reputationRegistry.getFeedbackAuthId(aliceId, bobId);
-        bytes32 charlieAuthId = reputationRegistry.getFeedbackAuthId(aliceId, charlieId);
-        
-        assertTrue(bobAuthId != bytes32(0));
-        assertTrue(charlieAuthId != bytes32(0));
-        assertTrue(bobAuthId != charlieAuthId);
+    
+    function test_RevokeFeedback_InvalidIndex_Reverts() public {
+        vm.prank(client);
+        vm.expectRevert("Invalid index");
+        reputationRegistry.revokeFeedback(agentId, 1);
     }
-
-    function test_Integration_AgentUpdatesAddress() public {
-        // Bob authorizes Alice for feedback
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+    
+    function test_RevokeFeedback_AlreadyRevoked_Reverts() public {
+        // Give and revoke feedback
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
         
-        // Bob updates his address in the identity registry
-        address newBobAddress = makeAddr("newBob");
-        vm.prank(bob);
-        identityRegistry.updateAgent(bobId, "", newBobAddress);
+        vm.startPrank(client);
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
+        reputationRegistry.revokeFeedback(agentId, 1);
         
-        // The feedback authorization should still exist (it's based on agent IDs, not addresses)
-        (bool isAuthorized,) = reputationRegistry.isFeedbackAuthorized(aliceId, bobId);
-        assertTrue(isAuthorized);
-        
-        // But new authorizations should require the new address
-        vm.prank(bob); // Old address
-        vm.expectRevert(IReputationRegistry.UnauthorizedFeedback.selector);
-        reputationRegistry.acceptFeedback(charlieId, bobId);
-        
-        vm.prank(newBobAddress); // New address
-        reputationRegistry.acceptFeedback(charlieId, bobId); // Should succeed
+        // Try to revoke again
+        vm.expectRevert("Already revoked");
+        reputationRegistry.revokeFeedback(agentId, 1);
+        vm.stopPrank();
     }
-
-    // ============ Edge Cases ============
-
-    function test_EdgeCase_ZeroAgentIds() public {
-        vm.prank(bob);
-        vm.expectRevert(IReputationRegistry.AgentNotFound.selector);
-        reputationRegistry.acceptFeedback(0, bobId);
+    
+    // ============ Append Response Tests ============
+    
+    function test_AppendResponse_Success() public {
+        // Give feedback first
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
         
-        vm.prank(bob);
-        vm.expectRevert(IReputationRegistry.AgentNotFound.selector);
-        reputationRegistry.acceptFeedback(aliceId, 0);
+        vm.prank(client);
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, FEEDBACK_URI, bytes32(0), feedbackAuth);
+        
+        // Append response
+        vm.prank(responder);
+        vm.expectEmit(true, true, false, true);
+        emit ResponseAppended(agentId, client, 1, responder, RESPONSE_URI);
+        
+        reputationRegistry.appendResponse(agentId, client, 1, RESPONSE_URI, keccak256("response"));
     }
-
-    function test_EdgeCase_AuthIdUniqueness() public {
-        // Authorize same client-server pair multiple times (should fail after first)
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+    
+    function test_AppendResponse_MultipleResponders() public {
+        // Give feedback
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
         
-        bytes32 firstAuthId = reputationRegistry.getFeedbackAuthId(aliceId, bobId);
+        vm.prank(client);
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
         
-        vm.prank(bob);
-        vm.expectRevert(IReputationRegistry.FeedbackAlreadyAuthorized.selector);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+        // Multiple responses
+        vm.prank(responder);
+        reputationRegistry.appendResponse(agentId, client, 1, RESPONSE_URI, bytes32(0));
         
-        // Auth ID should remain the same
-        bytes32 secondAuthId = reputationRegistry.getFeedbackAuthId(aliceId, bobId);
-        assertEq(firstAuthId, secondAuthId);
+        vm.prank(agentOwner);
+        reputationRegistry.appendResponse(agentId, client, 1, "ipfs://QmRefund", bytes32(0));
+        
+        // Verify response count
+        address[] memory responders = new address[](2);
+        responders[0] = responder;
+        responders[1] = agentOwner;
+        
+        uint64 count = reputationRegistry.getResponseCount(agentId, client, 1, responders);
+        assertEq(count, 2);
     }
-
-    // ============ Gas Optimization Tests ============
-
-    function test_Gas_AcceptFeedback() public {
-        vm.prank(bob);
-        uint256 gasStart = gasleft();
-        reputationRegistry.acceptFeedback(aliceId, bobId);
-        uint256 gasUsed = gasStart - gasleft();
-        
-        console.log("Gas used for acceptFeedback:", gasUsed);
-        // Should be less than 95k gas
-        assertLt(gasUsed, 95_000);
+    
+    function test_AppendResponse_InvalidIndex_Reverts() public {
+        vm.prank(responder);
+        vm.expectRevert("Invalid index");
+        reputationRegistry.appendResponse(agentId, client, 1, RESPONSE_URI, bytes32(0));
     }
-
-    function test_Gas_IsFeedbackAuthorized() public {
-        // Setup authorization
-        vm.prank(bob);
-        reputationRegistry.acceptFeedback(aliceId, bobId);
+    
+    function test_AppendResponse_EmptyURI_Reverts() public {
+        // Give feedback first
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            client,
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
         
-        // Test gas usage
-        uint256 gasStart = gasleft();
-        reputationRegistry.isFeedbackAuthorized(aliceId, bobId);
-        uint256 gasUsed = gasStart - gasleft();
+        vm.prank(client);
+        reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
         
-        console.log("Gas used for isFeedbackAuthorized:", gasUsed);
-        // Should be less than 10k gas (view function)
-        assertLt(gasUsed, 10_000);
+        vm.prank(responder);
+        vm.expectRevert("Empty URI");
+        reputationRegistry.appendResponse(agentId, client, 1, "", bytes32(0));
+    }
+    
+    // ============ Read Functions Tests ============
+    
+    function test_GetSummary_NoFilters() public {
+        // Give multiple feedbacks
+        _giveFeedback(client, 90);
+        _giveFeedback(client2, 80);
+        
+        address[] memory emptyClients = new address[](0);
+        (uint64 count, uint8 avgScore) = reputationRegistry.getSummary(agentId, emptyClients, bytes32(0), bytes32(0));
+        
+        assertEq(count, 2);
+        assertEq(avgScore, 85); // (90 + 80) / 2
+    }
+    
+    function test_GetSummary_FilterByClient() public {
+        _giveFeedback(client, 90);
+        _giveFeedback(client2, 80);
+        
+        address[] memory clients = new address[](1);
+        clients[0] = client;
+        
+        (uint64 count, uint8 avgScore) = reputationRegistry.getSummary(agentId, clients, bytes32(0), bytes32(0));
+        
+        assertEq(count, 1);
+        assertEq(avgScore, 90);
+    }
+    
+    function test_GetSummary_FilterByTags() public {
+        bytes32 tag1A = bytes32("quality");
+        bytes32 tag1B = bytes32("other");
+        
+        _giveFeedbackWithTags(client, 90, tag1A, TAG2);
+        _giveFeedbackWithTags(client2, 80, tag1B, TAG2);
+        
+        address[] memory emptyClients = new address[](0);
+        (uint64 count, uint8 avgScore) = reputationRegistry.getSummary(agentId, emptyClients, tag1A, bytes32(0));
+        
+        assertEq(count, 1);
+        assertEq(avgScore, 90);
+    }
+    
+    function test_GetSummary_ExcludesRevoked() public {
+        _giveFeedback(client, 90);
+        _giveFeedback(client2, 80);
+        
+        // Revoke first feedback
+        vm.prank(client);
+        reputationRegistry.revokeFeedback(agentId, 1);
+        
+        address[] memory emptyClients = new address[](0);
+        (uint64 count, uint8 avgScore) = reputationRegistry.getSummary(agentId, emptyClients, bytes32(0), bytes32(0));
+        
+        assertEq(count, 1);
+        assertEq(avgScore, 80); // Only client2's feedback
+    }
+    
+    function test_ReadAllFeedback_Success() public {
+        _giveFeedback(client, 90);
+        _giveFeedback(client2, 85);
+        
+        address[] memory emptyClients = new address[](0);
+        (
+            address[] memory clients,
+            uint8[] memory scores,
+            bytes32[] memory tag1s,
+            bytes32[] memory tag2s,
+            bool[] memory revokedStatuses
+        ) = reputationRegistry.readAllFeedback(agentId, emptyClients, bytes32(0), bytes32(0), false);
+        
+        assertEq(clients.length, 2);
+        assertEq(scores.length, 2);
+        assertEq(scores[0], 90);
+        assertEq(scores[1], 85);
+        assertFalse(revokedStatuses[0]);
+        assertFalse(revokedStatuses[1]);
+    }
+    
+    function test_ReadAllFeedback_ExcludesRevoked() public {
+        _giveFeedback(client, 90);
+        _giveFeedback(client2, 85);
+        
+        vm.prank(client);
+        reputationRegistry.revokeFeedback(agentId, 1);
+        
+        address[] memory emptyClients = new address[](0);
+        (
+            address[] memory clients,
+            uint8[] memory scores,,,
+        ) = reputationRegistry.readAllFeedback(agentId, emptyClients, bytes32(0), bytes32(0), false);
+        
+        assertEq(clients.length, 1);
+        assertEq(scores[0], 85); // Only client2's feedback
+    }
+    
+    function test_GetClients_ReturnsAllClients() public {
+        _giveFeedback(client, 90);
+        _giveFeedback(client2, 85);
+        
+        address[] memory clients = reputationRegistry.getClients(agentId);
+        assertEq(clients.length, 2);
+        assertEq(clients[0], client);
+        assertEq(clients[1], client2);
+    }
+    
+    function test_GetIdentityRegistry_ReturnsCorrectAddress() public {
+        assertEq(reputationRegistry.getIdentityRegistry(), address(identityRegistry));
+    }
+    
+    // ============ Helper Functions for Tests ============
+    
+    function _giveFeedback(address _client, uint8 score) internal {
+        uint64 nextIndex = reputationRegistry.getLastIndex(agentId, _client) + 1;
+        
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            _client,
+            nextIndex,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(_client);
+        reputationRegistry.giveFeedback(agentId, score, TAG1, TAG2, "", bytes32(0), feedbackAuth);
+    }
+    
+    function _giveFeedbackWithTags(address _client, uint8 score, bytes32 tag1, bytes32 tag2) internal {
+        uint64 nextIndex = reputationRegistry.getLastIndex(agentId, _client) + 1;
+        
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            _client,
+            nextIndex,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(_client);
+        reputationRegistry.giveFeedback(agentId, score, tag1, tag2, "", bytes32(0), feedbackAuth);
     }
 }

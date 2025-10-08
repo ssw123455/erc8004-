@@ -1,427 +1,448 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
+import "forge-std/Test.sol";
 import "../src/IdentityRegistry.sol";
 import "../src/ValidationRegistry.sol";
-import "../src/interfaces/IValidationRegistry.sol";
 
 /**
  * @title ValidationRegistryTest
- * @dev Comprehensive test suite for the ValidationRegistry contract
+ * @dev Comprehensive test suite for ERC-8004 v1.0 Validation Registry
+ * @author ChaosChain Labs
  */
 contract ValidationRegistryTest is Test {
     IdentityRegistry public identityRegistry;
     ValidationRegistry public validationRegistry;
     
-    // Test accounts
-    address public alice = makeAddr("alice"); // Server agent
-    address public bob = makeAddr("bob");     // Validator agent
-    address public charlie = makeAddr("charlie"); // Another agent
+    address public agentOwner = address(0x1);
+    address public validator = address(0x2);
+    address public validator2 = address(0x3);
     
-    // Test domains
-    string constant ALICE_DOMAIN = "alice.example.com";
-    string constant BOB_DOMAIN = "bob.example.com";
-    string constant CHARLIE_DOMAIN = "charlie.example.com";
+    uint256 public agentId;
     
-    // Agent IDs
-    uint256 public aliceId;   // Server agent
-    uint256 public bobId;     // Validator agent
-    uint256 public charlieId; // Another agent
+    string constant TOKEN_URI = "ipfs://QmTest/agent.json";
+    string constant REQUEST_URI = "ipfs://QmRequest/validation-request.json";
+    string constant RESPONSE_URI = "ipfs://QmResponse/validation-response.json";
     
-    // Test data hashes
-    bytes32 public testDataHash1 = keccak256("test-data-1");
-    bytes32 public testDataHash2 = keccak256("test-data-2");
+    bytes32 constant REQUEST_HASH = keccak256("request_data");
+    bytes32 constant RESPONSE_HASH = keccak256("response_data");
+    bytes32 constant TAG = bytes32("hard-finality");
     
-    event ValidationRequestEvent(
-        uint256 indexed agentValidatorId,
-        uint256 indexed agentServerId,
-        bytes32 indexed dataHash
+    event ValidationRequest(
+        address indexed validatorAddress,
+        uint256 indexed agentId,
+        string requestUri,
+        bytes32 indexed requestHash
     );
     
-    event ValidationResponseEvent(
-        uint256 indexed agentValidatorId,
-        uint256 indexed agentServerId,
-        bytes32 indexed dataHash,
-        uint8 response
+    event ValidationResponse(
+        address indexed validatorAddress,
+        uint256 indexed agentId,
+        bytes32 indexed requestHash,
+        uint8 response,
+        string responseUri,
+        bytes32 tag
     );
-
+    
     function setUp() public {
-        // Deploy contracts
         identityRegistry = new IdentityRegistry();
         validationRegistry = new ValidationRegistry(address(identityRegistry));
         
-        // Fund test accounts
-        vm.deal(alice, 1 ether);
-        vm.deal(bob, 1 ether);
-        vm.deal(charlie, 1 ether);
-        
-        // Register test agents
-        vm.prank(alice);
-        aliceId = identityRegistry.newAgent(ALICE_DOMAIN, alice);
-        
-        vm.prank(bob);
-        bobId = identityRegistry.newAgent(BOB_DOMAIN, bob);
-        
-        vm.prank(charlie);
-        charlieId = identityRegistry.newAgent(CHARLIE_DOMAIN, charlie);
+        // Register agent
+        vm.prank(agentOwner);
+        agentId = identityRegistry.register(TOKEN_URI);
     }
-
+    
     // ============ Validation Request Tests ============
-
+    
     function test_ValidationRequest_Success() public {
-        vm.expectEmit(true, true, true, false);
-        emit ValidationRequestEvent(bobId, aliceId, testDataHash1);
+        vm.prank(agentOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
         
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
         
-        // Verify request exists
-        IValidationRegistry.Request memory request = validationRegistry.getValidationRequest(testDataHash1);
-        assertEq(request.agentValidatorId, bobId);
-        assertEq(request.agentServerId, aliceId);
-        assertEq(request.dataHash, testDataHash1);
-        assertEq(request.timestamp, block.timestamp);
-        assertFalse(request.responded);
+        // Verify request was stored
+        (address validatorAddr, uint256 storedAgentId, string memory requestUri, uint256 timestamp) = 
+            validationRegistry.getRequest(REQUEST_HASH);
+        
+        assertEq(validatorAddr, validator);
+        assertEq(storedAgentId, agentId);
+        assertEq(requestUri, REQUEST_URI);
+        assertEq(timestamp, block.timestamp);
+        
+        // Verify tracking arrays
+        bytes32[] memory agentValidations = validationRegistry.getAgentValidations(agentId);
+        assertEq(agentValidations.length, 1);
+        assertEq(agentValidations[0], REQUEST_HASH);
+        
+        bytes32[] memory validatorRequests = validationRegistry.getValidatorRequests(validator);
+        assertEq(validatorRequests.length, 1);
+        assertEq(validatorRequests[0], REQUEST_HASH);
     }
-
+    
+    function test_ValidationRequest_AutoGenerateHash() public {
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, bytes32(0));
+        
+        // Hash should be auto-generated
+        bytes32[] memory agentValidations = validationRegistry.getAgentValidations(agentId);
+        assertEq(agentValidations.length, 1);
+        assertTrue(agentValidations[0] != bytes32(0));
+    }
+    
     function test_ValidationRequest_MultipleRequests() public {
-        // First request
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+        bytes32 hash1 = keccak256("request1");
+        bytes32 hash2 = keccak256("request2");
         
-        // Second request with different data hash
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash2);
+        vm.startPrank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, hash1);
+        validationRegistry.validationRequest(validator2, agentId, REQUEST_URI, hash2);
+        vm.stopPrank();
         
-        // Verify both exist
-        IValidationRegistry.Request memory request1 = validationRegistry.getValidationRequest(testDataHash1);
-        IValidationRegistry.Request memory request2 = validationRegistry.getValidationRequest(testDataHash2);
+        bytes32[] memory agentValidations = validationRegistry.getAgentValidations(agentId);
+        assertEq(agentValidations.length, 2);
+    }
+    
+    function test_ValidationRequest_InvalidValidator_Reverts() public {
+        vm.prank(agentOwner);
+        vm.expectRevert("Invalid validator address");
+        validationRegistry.validationRequest(address(0), agentId, REQUEST_URI, REQUEST_HASH);
+    }
+    
+    function test_ValidationRequest_EmptyURI_Reverts() public {
+        vm.prank(agentOwner);
+        vm.expectRevert("Empty request URI");
+        validationRegistry.validationRequest(validator, agentId, "", REQUEST_HASH);
+    }
+    
+    function test_ValidationRequest_NonExistentAgent_Reverts() public {
+        vm.prank(agentOwner);
+        vm.expectRevert("Agent does not exist");
+        validationRegistry.validationRequest(validator, 999, REQUEST_URI, REQUEST_HASH);
+    }
+    
+    function test_ValidationRequest_NotOwner_Reverts() public {
+        vm.prank(validator);
+        vm.expectRevert("Not authorized");
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+    }
+    
+    function test_ValidationRequest_ApprovedOperator_Success() public {
+        // Approve operator
+        vm.prank(agentOwner);
+        identityRegistry.approve(validator, agentId);
         
-        assertEq(request1.dataHash, testDataHash1);
-        assertEq(request2.dataHash, testDataHash2);
-    }
-
-    function test_ValidationRequest_DuplicateDataHash() public {
-        // First request
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+        // Operator can make validation request
+        vm.prank(validator);
+        validationRegistry.validationRequest(validator2, agentId, REQUEST_URI, REQUEST_HASH);
         
-        // SECURITY: Second request with same data hash should NOT emit event (prevents griefing)
-        // This is a security improvement to prevent event spam attacks
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+        (address validatorAddr,,,) = validationRegistry.getRequest(REQUEST_HASH);
+        assertEq(validatorAddr, validator2);
+    }
+    
+    function test_ValidationRequest_ApprovedForAll_Success() public {
+        // Set approval for all
+        vm.prank(agentOwner);
+        identityRegistry.setApprovalForAll(validator, true);
         
-        // Should still have only one request
-        IValidationRegistry.Request memory request = validationRegistry.getValidationRequest(testDataHash1);
-        assertEq(request.dataHash, testDataHash1);
-        assertEq(request.agentValidatorId, bobId);
-        assertEq(request.agentServerId, aliceId);
+        // Operator can make validation request
+        vm.prank(validator);
+        validationRegistry.validationRequest(validator2, agentId, REQUEST_URI, REQUEST_HASH);
+        
+        (address validatorAddr,,,) = validationRegistry.getRequest(REQUEST_HASH);
+        assertEq(validatorAddr, validator2);
     }
-
-    function test_ValidationRequest_RevertInvalidDataHash() public {
-        vm.expectRevert(IValidationRegistry.InvalidDataHash.selector);
-        validationRegistry.validationRequest(bobId, aliceId, bytes32(0));
-    }
-
-    function test_ValidationRequest_RevertValidatorNotFound() public {
-        vm.expectRevert(IValidationRegistry.AgentNotFound.selector);
-        validationRegistry.validationRequest(999, aliceId, testDataHash1); // Non-existent validator
-    }
-
-    function test_ValidationRequest_RevertServerNotFound() public {
-        vm.expectRevert(IValidationRegistry.AgentNotFound.selector);
-        validationRegistry.validationRequest(bobId, 999, testDataHash1); // Non-existent server
-    }
-
+    
     // ============ Validation Response Tests ============
-
+    
     function test_ValidationResponse_Success() public {
         // Create request first
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
         
-        // Submit response
-        vm.prank(bob);
+        // Provide response
+        vm.prank(validator);
         vm.expectEmit(true, true, true, true);
-        emit ValidationResponseEvent(bobId, aliceId, testDataHash1, 85);
+        emit ValidationResponse(validator, agentId, REQUEST_HASH, 100, RESPONSE_URI, TAG);
         
-        validationRegistry.validationResponse(testDataHash1, 85);
+        validationRegistry.validationResponse(REQUEST_HASH, 100, RESPONSE_URI, RESPONSE_HASH, TAG);
         
-        // Verify response
-        (bool hasResponse, uint8 response) = validationRegistry.getValidationResponse(testDataHash1);
-        assertTrue(hasResponse);
-        assertEq(response, 85);
+        // Verify response was stored
+        (address validatorAddr, uint256 storedAgentId, uint8 response, bytes32 tag, uint256 lastUpdate) = 
+            validationRegistry.getValidationStatus(REQUEST_HASH);
         
-        // Verify request is marked as responded
-        IValidationRegistry.Request memory request = validationRegistry.getValidationRequest(testDataHash1);
-        assertTrue(request.responded);
+        assertEq(validatorAddr, validator);
+        assertEq(storedAgentId, agentId);
+        assertEq(response, 100);
+        assertEq(tag, TAG);
+        assertEq(lastUpdate, block.timestamp);
     }
-
-    function test_ValidationResponse_BoundaryValues() public {
-        // Test minimum value (0)
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        vm.prank(bob);
-        validationRegistry.validationResponse(testDataHash1, 0);
+    
+    function test_ValidationResponse_MultipleResponses() public {
+        // Create request
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
         
-        (bool hasResponse, uint8 response) = validationRegistry.getValidationResponse(testDataHash1);
-        assertTrue(hasResponse);
-        assertEq(response, 0);
+        // First response (soft finality)
+        vm.prank(validator);
+        validationRegistry.validationResponse(REQUEST_HASH, 80, RESPONSE_URI, bytes32(0), bytes32("soft-finality"));
         
-        // Test maximum value (100)
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash2);
-        vm.prank(bob);
-        validationRegistry.validationResponse(testDataHash2, 100);
+        (,,uint8 response1, bytes32 tag1,) = validationRegistry.getValidationStatus(REQUEST_HASH);
+        assertEq(response1, 80);
+        assertEq(tag1, bytes32("soft-finality"));
         
-        (hasResponse, response) = validationRegistry.getValidationResponse(testDataHash2);
-        assertTrue(hasResponse);
+        // Second response (hard finality) - updates the first
+        vm.prank(validator);
+        validationRegistry.validationResponse(REQUEST_HASH, 100, RESPONSE_URI, bytes32(0), bytes32("hard-finality"));
+        
+        (,,uint8 response2, bytes32 tag2,) = validationRegistry.getValidationStatus(REQUEST_HASH);
+        assertEq(response2, 100);
+        assertEq(tag2, bytes32("hard-finality"));
+    }
+    
+    function test_ValidationResponse_ScoreTooHigh_Reverts() public {
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+        
+        vm.prank(validator);
+        vm.expectRevert("Response must be 0-100");
+        validationRegistry.validationResponse(REQUEST_HASH, 101, RESPONSE_URI, bytes32(0), TAG);
+    }
+    
+    function test_ValidationResponse_RequestNotFound_Reverts() public {
+        vm.prank(validator);
+        vm.expectRevert("Request not found");
+        validationRegistry.validationResponse(keccak256("nonexistent"), 100, RESPONSE_URI, bytes32(0), TAG);
+    }
+    
+    function test_ValidationResponse_NotAuthorizedValidator_Reverts() public {
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+        
+        vm.prank(validator2);
+        vm.expectRevert("Not authorized validator");
+        validationRegistry.validationResponse(REQUEST_HASH, 100, RESPONSE_URI, bytes32(0), TAG);
+    }
+    
+    function test_ValidationResponse_EmptyResponseURI() public {
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+        
+        // Empty response URI is allowed
+        vm.prank(validator);
+        validationRegistry.validationResponse(REQUEST_HASH, 100, "", bytes32(0), TAG);
+        
+        (,,uint8 response,,) = validationRegistry.getValidationStatus(REQUEST_HASH);
         assertEq(response, 100);
     }
-
-    function test_ValidationResponse_RevertInvalidResponse() public {
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+    
+    // ============ Aggregation Tests ============
+    
+    function test_GetSummary_NoFilters() public {
+        // Create multiple validations
+        _createAndRespondValidation(validator, 90);
+        _createAndRespondValidation(validator2, 80);
         
-        vm.prank(bob);
-        vm.expectRevert(IValidationRegistry.InvalidResponse.selector);
-        validationRegistry.validationResponse(testDataHash1, 101); // > 100
+        address[] memory emptyValidators = new address[](0);
+        (uint64 count, uint8 avgResponse) = validationRegistry.getSummary(agentId, emptyValidators, bytes32(0));
+        
+        assertEq(count, 2);
+        assertEq(avgResponse, 85); // (90 + 80) / 2
     }
-
-    function test_ValidationResponse_RevertRequestNotFound() public {
-        vm.prank(bob);
-        vm.expectRevert(IValidationRegistry.ValidationRequestNotFound.selector);
-        validationRegistry.validationResponse(testDataHash1, 85); // No request exists
+    
+    function test_GetSummary_FilterByValidator() public {
+        _createAndRespondValidation(validator, 90);
+        _createAndRespondValidation(validator2, 80);
+        
+        address[] memory validators = new address[](1);
+        validators[0] = validator;
+        
+        (uint64 count, uint8 avgResponse) = validationRegistry.getSummary(agentId, validators, bytes32(0));
+        
+        assertEq(count, 1);
+        assertEq(avgResponse, 90);
     }
-
-    function test_ValidationResponse_RevertUnauthorizedValidator() public {
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+    
+    function test_GetSummary_FilterByTag() public {
+        bytes32 tag1 = bytes32("zkml");
+        bytes32 tag2 = bytes32("tee");
         
-        // Charlie tries to respond (not the designated validator)
-        vm.prank(charlie);
-        vm.expectRevert(IValidationRegistry.UnauthorizedValidator.selector);
-        validationRegistry.validationResponse(testDataHash1, 85);
+        _createAndRespondValidationWithTag(validator, 90, tag1);
+        _createAndRespondValidationWithTag(validator2, 80, tag2);
+        
+        address[] memory emptyValidators = new address[](0);
+        (uint64 count, uint8 avgResponse) = validationRegistry.getSummary(agentId, emptyValidators, tag1);
+        
+        assertEq(count, 1);
+        assertEq(avgResponse, 90);
     }
-
-    function test_ValidationResponse_RevertAlreadyResponded() public {
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+    
+    function test_GetSummary_ExcludesUnresponded() public {
+        // Create validation but don't respond
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, keccak256("unresponded"));
         
-        // First response
-        vm.prank(bob);
-        validationRegistry.validationResponse(testDataHash1, 85);
+        // Create and respond to another
+        _createAndRespondValidation(validator2, 85);
         
-        // Second response (should fail)
-        vm.prank(bob);
-        vm.expectRevert(IValidationRegistry.ValidationAlreadyResponded.selector);
-        validationRegistry.validationResponse(testDataHash1, 90);
+        address[] memory emptyValidators = new address[](0);
+        (uint64 count, uint8 avgResponse) = validationRegistry.getSummary(agentId, emptyValidators, bytes32(0));
+        
+        assertEq(count, 1);
+        assertEq(avgResponse, 85);
     }
-
-    function test_ValidationResponse_RevertRequestExpired() public {
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+    
+    // ============ Read Function Tests ============
+    
+    function test_GetAgentValidations_ReturnsAllRequests() public {
+        bytes32 hash1 = keccak256("request1");
+        bytes32 hash2 = keccak256("request2");
         
-        // Fast forward past expiration
-        vm.warp(block.timestamp + validationRegistry.getExpirationSlots() + 1);
+        vm.startPrank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, hash1);
+        validationRegistry.validationRequest(validator2, agentId, REQUEST_URI, hash2);
+        vm.stopPrank();
         
-        vm.prank(bob);
-        vm.expectRevert(IValidationRegistry.RequestExpired.selector);
-        validationRegistry.validationResponse(testDataHash1, 85);
+        bytes32[] memory validations = validationRegistry.getAgentValidations(agentId);
+        assertEq(validations.length, 2);
+        assertEq(validations[0], hash1);
+        assertEq(validations[1], hash2);
     }
-
-    // ============ Query Function Tests ============
-
-    function test_IsValidationPending_True() public {
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
+    
+    function test_GetValidatorRequests_ReturnsAllRequests() public {
+        bytes32 hash1 = keccak256("request1");
+        bytes32 hash2 = keccak256("request2");
         
-        (bool exists, bool pending) = validationRegistry.isValidationPending(testDataHash1);
-        assertTrue(exists);
-        assertTrue(pending);
+        vm.startPrank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, hash1);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, hash2);
+        vm.stopPrank();
+        
+        bytes32[] memory requests = validationRegistry.getValidatorRequests(validator);
+        assertEq(requests.length, 2);
+        assertEq(requests[0], hash1);
+        assertEq(requests[1], hash2);
     }
-
-    function test_IsValidationPending_False_NotExists() public {
-        (bool exists, bool pending) = validationRegistry.isValidationPending(testDataHash1);
-        assertFalse(exists);
-        assertFalse(pending);
+    
+    function test_GetRequest_NonExistent_Reverts() public {
+        vm.expectRevert("Request not found");
+        validationRegistry.getRequest(keccak256("nonexistent"));
     }
-
-    function test_IsValidationPending_False_Responded() public {
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        
-        vm.prank(bob);
-        validationRegistry.validationResponse(testDataHash1, 85);
-        
-        (bool exists, bool pending) = validationRegistry.isValidationPending(testDataHash1);
-        assertTrue(exists);
-        assertFalse(pending); // Not pending because it's responded
+    
+    function test_GetValidationStatus_NonExistent_Reverts() public {
+        vm.expectRevert("Response not found");
+        validationRegistry.getValidationStatus(keccak256("nonexistent"));
     }
-
-    function test_IsValidationPending_False_Expired() public {
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        
-        // Fast forward past expiration
-        vm.warp(block.timestamp + validationRegistry.getExpirationSlots() + 1);
-        
-        (bool exists, bool pending) = validationRegistry.isValidationPending(testDataHash1);
-        assertTrue(exists);
-        assertFalse(pending); // Not pending because it's expired
+    
+    function test_GetIdentityRegistry_ReturnsCorrectAddress() public {
+        assertEq(validationRegistry.getIdentityRegistry(), address(identityRegistry));
     }
-
-    function test_GetValidationResponse_NoResponse() public {
-        (bool hasResponse, uint8 response) = validationRegistry.getValidationResponse(testDataHash1);
-        assertFalse(hasResponse);
-        assertEq(response, 0); // Default value
-    }
-
-    function test_GetExpirationSlots() public {
-        uint256 slots = validationRegistry.getExpirationSlots();
-        assertEq(slots, 1000); // Default value from contract
-    }
-
-    // ============ Integration Tests ============
-
-    function test_Integration_FullValidationFlow() public {
-        // 1. Create validation request
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        
-        // 2. Verify request is pending
-        (bool exists, bool pending) = validationRegistry.isValidationPending(testDataHash1);
-        assertTrue(exists);
-        assertTrue(pending);
-        
-        // 3. Submit response
-        vm.prank(bob);
-        validationRegistry.validationResponse(testDataHash1, 75);
-        
-        // 4. Verify response exists and request is no longer pending
-        (bool hasResponse, uint8 response) = validationRegistry.getValidationResponse(testDataHash1);
-        assertTrue(hasResponse);
-        assertEq(response, 75);
-        
-        (exists, pending) = validationRegistry.isValidationPending(testDataHash1);
-        assertTrue(exists);
-        assertFalse(pending);
-    }
-
-    function test_Integration_MultipleValidatorsForSameServer() public {
-        // Different validators for the same server's work
-        bytes32 dataHash3 = keccak256("test-data-3");
-        
-        // Bob validates Alice's work
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        vm.prank(bob);
-        validationRegistry.validationResponse(testDataHash1, 85);
-        
-        // Charlie validates Alice's different work
-        validationRegistry.validationRequest(charlieId, aliceId, dataHash3);
-        vm.prank(charlie);
-        validationRegistry.validationResponse(dataHash3, 92);
-        
-        // Verify both validations
-        (bool hasResponse1, uint8 response1) = validationRegistry.getValidationResponse(testDataHash1);
-        (bool hasResponse2, uint8 response2) = validationRegistry.getValidationResponse(dataHash3);
-        
-        assertTrue(hasResponse1);
-        assertTrue(hasResponse2);
-        assertEq(response1, 85);
-        assertEq(response2, 92);
-    }
-
-    function test_Integration_ValidatorAddressUpdate() public {
-        // Create request
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        
-        // Bob updates his address
-        address newBobAddress = makeAddr("newBob");
-        vm.prank(bob);
-        identityRegistry.updateAgent(bobId, "", newBobAddress);
-        
-        // Old address can't respond
-        vm.prank(bob); // Old address
-        vm.expectRevert(IValidationRegistry.UnauthorizedValidator.selector);
-        validationRegistry.validationResponse(testDataHash1, 85);
-        
-        // New address can respond
-        vm.prank(newBobAddress);
-        validationRegistry.validationResponse(testDataHash1, 85);
-        
-        (bool hasResponse, uint8 response) = validationRegistry.getValidationResponse(testDataHash1);
-        assertTrue(hasResponse);
-        assertEq(response, 85);
-    }
-
-    function test_Integration_RequestReusesExpiredSlot() public {
-        // Create request
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        
-        // Fast forward past expiration
-        vm.warp(block.timestamp + validationRegistry.getExpirationSlots() + 1);
-        
-        // Create new request with same data hash (should work)
-        validationRegistry.validationRequest(charlieId, aliceId, testDataHash1);
-        
-        // Verify the request was updated with new validator
-        IValidationRegistry.Request memory request = validationRegistry.getValidationRequest(testDataHash1);
-        assertEq(request.agentValidatorId, charlieId); // Should be Charlie now, not Bob
-        assertEq(request.timestamp, block.timestamp);
-        assertFalse(request.responded);
-    }
-
+    
     // ============ Edge Cases ============
-
-    function test_EdgeCase_SelfValidation() public {
-        // SECURITY: Self-validation should now be prevented
-        vm.expectRevert(IValidationRegistry.SelfValidationNotAllowed.selector);
-        validationRegistry.validationRequest(aliceId, aliceId, testDataHash1);
-    }
-
-    function test_EdgeCase_ZeroAgentIds() public {
-        vm.expectRevert(IValidationRegistry.AgentNotFound.selector);
-        validationRegistry.validationRequest(0, aliceId, testDataHash1);
+    
+    function test_ValidationRequest_SameHashTwice_OnlyStoresOnce() public {
+        vm.startPrank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+        vm.stopPrank();
         
-        vm.expectRevert(IValidationRegistry.AgentNotFound.selector);
-        validationRegistry.validationRequest(bobId, 0, testDataHash1);
-    }
-
-    function test_EdgeCase_ExactExpirationBoundary() public {
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        
-        // Fast forward to exact expiration block
-        vm.warp(block.timestamp + validationRegistry.getExpirationSlots());
-        
-        // Should still be valid at exact expiration block
-        vm.prank(bob);
-        validationRegistry.validationResponse(testDataHash1, 85);
-        
-        (bool hasResponse, uint8 response) = validationRegistry.getValidationResponse(testDataHash1);
-        assertTrue(hasResponse);
-        assertEq(response, 85);
-    }
-
-    // ============ Gas Optimization Tests ============
-
-    function test_Gas_ValidationRequest() public {
-        uint256 gasStart = gasleft();
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        uint256 gasUsed = gasStart - gasleft();
-        
-        console.log("Gas used for validationRequest:", gasUsed);
-        // Should be less than 140k gas (first validation request costs more due to storage setup)
-        assertLt(gasUsed, 140_000);
-    }
-
-    function test_Gas_ValidationResponse() public {
-        validationRegistry.validationRequest(bobId, aliceId, testDataHash1);
-        
-        vm.prank(bob);
-        uint256 gasStart = gasleft();
-        validationRegistry.validationResponse(testDataHash1, 85);
-        uint256 gasUsed = gasStart - gasleft();
-        
-        console.log("Gas used for validationResponse:", gasUsed);
-        // Should be less than 115k gas
-        assertLt(gasUsed, 115_000);
+        bytes32[] memory validations = validationRegistry.getAgentValidations(agentId);
+        assertEq(validations.length, 1, "Should only store once");
     }
     
-    // ============ Security Tests ============
-    
-    function test_Security_PreventSelfValidation() public {
-        // Test that agents cannot validate themselves
-        vm.expectRevert(IValidationRegistry.SelfValidationNotAllowed.selector);
-        validationRegistry.validationRequest(aliceId, aliceId, testDataHash1);
+    function test_ValidationResponse_BinaryScores() public {
+        bytes32 hash1 = keccak256("pass");
+        bytes32 hash2 = keccak256("fail");
         
-        vm.expectRevert(IValidationRegistry.SelfValidationNotAllowed.selector);
-        validationRegistry.validationRequest(bobId, bobId, testDataHash2);
+        vm.startPrank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, hash1);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, hash2);
+        vm.stopPrank();
+        
+        vm.startPrank(validator);
+        validationRegistry.validationResponse(hash1, 100, "", bytes32(0), bytes32("pass"));
+        validationRegistry.validationResponse(hash2, 0, "", bytes32(0), bytes32("fail"));
+        vm.stopPrank();
+        
+        (,,uint8 response1,,) = validationRegistry.getValidationStatus(hash1);
+        (,,uint8 response2,,) = validationRegistry.getValidationStatus(hash2);
+        
+        assertEq(response1, 100);
+        assertEq(response2, 0);
+    }
+    
+    function test_ValidationResponse_SpectrumScores() public {
+        bytes32[] memory hashes = new bytes32[](5);
+        uint8[] memory scores = new uint8[](5);
+        scores[0] = 20;
+        scores[1] = 40;
+        scores[2] = 60;
+        scores[3] = 80;
+        scores[4] = 100;
+        
+        for (uint i = 0; i < 5; i++) {
+            hashes[i] = keccak256(abi.encodePacked("request", i));
+            
+            vm.prank(agentOwner);
+            validationRegistry.validationRequest(validator, agentId, REQUEST_URI, hashes[i]);
+            
+            vm.prank(validator);
+            validationRegistry.validationResponse(hashes[i], scores[i], "", bytes32(0), bytes32(0));
+        }
+        
+        address[] memory emptyValidators = new address[](0);
+        (uint64 count, uint8 avgResponse) = validationRegistry.getSummary(agentId, emptyValidators, bytes32(0));
+        
+        assertEq(count, 5);
+        assertEq(avgResponse, 60); // (20+40+60+80+100)/5
+    }
+    
+    // ============ Helper Functions ============
+    
+    function _createAndRespondValidation(address _validator, uint8 score) internal {
+        bytes32 hash = keccak256(abi.encodePacked(_validator, score, block.timestamp));
+        
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(_validator, agentId, REQUEST_URI, hash);
+        
+        vm.prank(_validator);
+        validationRegistry.validationResponse(hash, score, RESPONSE_URI, bytes32(0), TAG);
+    }
+    
+    function _createAndRespondValidationWithTag(address _validator, uint8 score, bytes32 tag) internal {
+        bytes32 hash = keccak256(abi.encodePacked(_validator, score, tag, block.timestamp));
+        
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(_validator, agentId, REQUEST_URI, hash);
+        
+        vm.prank(_validator);
+        validationRegistry.validationResponse(hash, score, RESPONSE_URI, bytes32(0), tag);
+    }
+    
+    // ============ Fuzz Tests ============
+    
+    function testFuzz_ValidationResponse_ValidScores(uint8 score) public {
+        vm.assume(score <= 100);
+        
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+        
+        vm.prank(validator);
+        validationRegistry.validationResponse(REQUEST_HASH, score, RESPONSE_URI, bytes32(0), TAG);
+        
+        (,,uint8 storedScore,,) = validationRegistry.getValidationStatus(REQUEST_HASH);
+        assertEq(storedScore, score);
+    }
+    
+    function testFuzz_ValidationResponse_InvalidScores(uint8 score) public {
+        vm.assume(score > 100);
+        
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+        
+        vm.prank(validator);
+        vm.expectRevert("Response must be 0-100");
+        validationRegistry.validationResponse(REQUEST_HASH, score, RESPONSE_URI, bytes32(0), TAG);
     }
 }
