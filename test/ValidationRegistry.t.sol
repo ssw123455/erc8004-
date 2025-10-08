@@ -43,7 +43,7 @@ contract ValidationRegistryTest is Test {
         string responseUri,
         bytes32 tag
     );
-    
+
     function setUp() public {
         identityRegistry = new IdentityRegistry();
         validationRegistry = new ValidationRegistry(address(identityRegistry));
@@ -52,9 +52,9 @@ contract ValidationRegistryTest is Test {
         vm.prank(agentOwner);
         agentId = identityRegistry.register(TOKEN_URI);
     }
-    
+
     // ============ Validation Request Tests ============
-    
+
     function test_ValidationRequest_Success() public {
         vm.prank(agentOwner);
         vm.expectEmit(true, true, true, true);
@@ -90,7 +90,7 @@ contract ValidationRegistryTest is Test {
         assertEq(agentValidations.length, 1);
         assertTrue(agentValidations[0] != bytes32(0));
     }
-    
+
     function test_ValidationRequest_MultipleRequests() public {
         bytes32 hash1 = keccak256("request1");
         bytes32 hash2 = keccak256("request2");
@@ -153,9 +153,9 @@ contract ValidationRegistryTest is Test {
         (address validatorAddr,,,) = validationRegistry.getRequest(REQUEST_HASH);
         assertEq(validatorAddr, validator2);
     }
-    
+
     // ============ Validation Response Tests ============
-    
+
     function test_ValidationResponse_Success() public {
         // Create request first
         vm.prank(agentOwner);
@@ -330,9 +330,35 @@ contract ValidationRegistryTest is Test {
         validationRegistry.getRequest(keccak256("nonexistent"));
     }
     
-    function test_GetValidationStatus_NonExistent_Reverts() public {
-        vm.expectRevert("Response not found");
-        validationRegistry.getValidationStatus(keccak256("nonexistent"));
+    function test_GetValidationStatus_NonExistent_ReturnsDefaults() public {
+        // Non-existent requests return default values (no revert)
+        bytes32 nonExistentHash = keccak256("nonexistent");
+        (address validator, uint256 agentId, uint8 response, bytes32 tag, uint256 lastUpdate) = 
+            validationRegistry.getValidationStatus(nonExistentHash);
+        
+        assertEq(validator, address(0), "Should return address(0)");
+        assertEq(agentId, 0, "Should return 0");
+        assertEq(response, 0, "Should return 0");
+        assertEq(tag, bytes32(0), "Should return bytes32(0)");
+        assertEq(lastUpdate, 0, "Should return 0");
+        assertFalse(validationRegistry.requestExists(nonExistentHash), "Should not exist");
+    }
+    
+    function test_GetValidationStatus_Pending_ReturnsDefaults() public {
+        // Create request but no response yet
+        vm.prank(agentOwner);
+        validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+        
+        // Should return defaults for pending request (no revert)
+        (address returnedValidator, uint256 returnedAgentId, uint8 response, bytes32 tag, uint256 lastUpdate) = 
+            validationRegistry.getValidationStatus(REQUEST_HASH);
+        
+        assertEq(returnedValidator, address(0), "Pending: should return address(0)");
+        assertEq(returnedAgentId, 0, "Pending: should return 0");
+        assertEq(response, 0, "Pending: should return 0");
+        assertEq(tag, bytes32(0), "Pending: should return bytes32(0)");
+        assertEq(lastUpdate, 0, "Pending: should return 0");
+        assertTrue(validationRegistry.requestExists(REQUEST_HASH), "Request should exist");
     }
     
     function test_GetIdentityRegistry_ReturnsCorrectAddress() public {
@@ -341,14 +367,14 @@ contract ValidationRegistryTest is Test {
     
     // ============ Edge Cases ============
     
-    function test_ValidationRequest_SameHashTwice_OnlyStoresOnce() public {
+    function test_ValidationRequest_SameHashTwice_Reverts() public {
         vm.startPrank(agentOwner);
         validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
+        
+        // SECURITY: Attempting to use the same hash again should revert to prevent hijacking
+        vm.expectRevert("Request hash already exists");
         validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
         vm.stopPrank();
-        
-        bytes32[] memory validations = validationRegistry.getAgentValidations(agentId);
-        assertEq(validations.length, 1, "Should only store once");
     }
     
     function test_ValidationResponse_BinaryScores() public {

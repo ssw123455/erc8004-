@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import "./IdentityRegistry.sol";
 import "./interfaces/IValidationRegistry.sol";
@@ -115,6 +115,10 @@ contract ValidationRegistry is IValidationRegistry {
             ));
         }
         
+        // SECURITY: Prevent requestHash hijacking
+        // Once a request exists, it cannot be overwritten
+        require(!_requestExists[finalRequestHash], "Request hash already exists");
+        
         // Store request
         _requests[finalRequestHash] = Request({
             validatorAddress: validatorAddress,
@@ -124,12 +128,10 @@ contract ValidationRegistry is IValidationRegistry {
             timestamp: block.timestamp
         });
         
-        // Add to tracking arrays if new
-        if (!_requestExists[finalRequestHash]) {
-            _agentValidations[agentId].push(finalRequestHash);
-            _validatorRequests[validatorAddress].push(finalRequestHash);
-            _requestExists[finalRequestHash] = true;
-        }
+        // Add to tracking arrays
+        _agentValidations[agentId].push(finalRequestHash);
+        _validatorRequests[validatorAddress].push(finalRequestHash);
+        _requestExists[finalRequestHash] = true;
         
         emit ValidationRequest(validatorAddress, agentId, requestUri, finalRequestHash);
     }
@@ -184,12 +186,14 @@ contract ValidationRegistry is IValidationRegistry {
     
     /**
      * @notice Get validation status for a request
+     * @dev Returns default values (address(0), 0, 0, 0, 0) for pending requests without responses
+     * @dev To distinguish pending from non-existent requests, check if request exists via _requestExists
      * @param requestHash The request hash
-     * @return validatorAddress The validator address
-     * @return agentId The agent ID
-     * @return response The validation response (0-100)
-     * @return tag The response tag
-     * @return lastUpdate Timestamp of last update
+     * @return validatorAddress The validator address (address(0) if no response yet)
+     * @return agentId The agent ID (0 if no response yet)
+     * @return response The validation response (0-100, or 0 if no response yet)
+     * @return tag The response tag (bytes32(0) if no response yet)
+     * @return lastUpdate Timestamp of last update (0 if no response yet)
      */
     function getValidationStatus(bytes32 requestHash) external view returns (
         address validatorAddress,
@@ -199,8 +203,12 @@ contract ValidationRegistry is IValidationRegistry {
         uint256 lastUpdate
     ) {
         Response storage resp = _responses[requestHash];
-        require(resp.validatorAddress != address(0), "Response not found");
         
+        // Return default values for pending requests (no revert)
+        // This allows callers to distinguish between:
+        // - Non-existent request: validatorAddress == 0 && !_requestExists[requestHash]
+        // - Pending request: validatorAddress == 0 && _requestExists[requestHash]
+        // - Responded request: validatorAddress != 0
         return (
             resp.validatorAddress,
             resp.agentId,
@@ -273,6 +281,15 @@ contract ValidationRegistry is IValidationRegistry {
      */
     function getValidatorRequests(address validatorAddress) external view returns (bytes32[] memory requestHashes) {
         return _validatorRequests[validatorAddress];
+    }
+    
+    /**
+     * @notice Check if a validation request exists
+     * @param requestHash The request hash
+     * @return exists True if the request has been created
+     */
+    function requestExists(bytes32 requestHash) external view returns (bool exists) {
+        return _requestExists[requestHash];
     }
     
     /**

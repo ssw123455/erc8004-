@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
@@ -122,6 +122,9 @@ contract ReputationRegistry is IReputationRegistry {
         
         // Verify signer is owner or approved operator
         address agentOwner = identityRegistry.ownerOf(agentId);
+        
+        // SECURITY: Prevent self-feedback to maintain integrity
+        require(msg.sender != agentOwner, "Self-feedback not allowed");
         require(
             auth.signerAddress == agentOwner || 
             identityRegistry.isApprovedForAll(agentOwner, auth.signerAddress) ||
@@ -149,23 +152,26 @@ contract ReputationRegistry is IReputationRegistry {
         // As per spec: "signed using EIP-191 or ERC-1271"
         bytes32 messageHash = _hashFeedbackAuth(auth);
         
-        // Try EIP-191 personal sign first (for EOAs)
-        address recoveredSigner = ECDSA.recover(messageHash, v, r, s);
-        
-        if (recoveredSigner != auth.signerAddress) {
-            // If EOA recovery fails, try ERC-1271 for smart contract wallets
-            bytes memory signature = new bytes(65);
-            assembly {
-                mstore(add(signature, 32), r)
-                mstore(add(signature, 64), s)
-                mstore8(add(signature, 96), v)
-            }
-            
-            require(
-                SignatureChecker.isValidSignatureNow(auth.signerAddress, messageHash, signature),
-                "Invalid signature"
-            );
+        // Prepare signature bytes for verification
+        bytes memory signature = new bytes(65);
+        assembly {
+            mstore(add(signature, 32), r)
+            mstore(add(signature, 64), s)
+            mstore8(add(signature, 96), v)
         }
+        
+        // Try EIP-191 personal sign first (for EOAs) using tryRecover to avoid revert
+        (address recoveredSigner, ECDSA.RecoverError error) = ECDSA.tryRecover(messageHash, signature);
+        
+        // If ECDSA recovery succeeds and matches, accept it
+        bool validSignature = (error == ECDSA.RecoverError.NoError && recoveredSigner == auth.signerAddress);
+        
+        // If EOA recovery fails or doesn't match, try ERC-1271 for smart contract wallets
+        if (!validSignature) {
+            validSignature = SignatureChecker.isValidSignatureNow(auth.signerAddress, messageHash, signature);
+        }
+        
+        require(validSignature, "Invalid signature");
         
         // Store feedback
         _feedback[agentId][msg.sender][currentIndex] = Feedback({
