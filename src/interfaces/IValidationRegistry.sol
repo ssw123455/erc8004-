@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 /**
  * @title IValidationRegistry
@@ -119,6 +119,13 @@ interface IValidationRegistry {
      * @return requestHashes Array of request hashes
      */
     function getValidatorRequests(address validatorAddress) external view returns (bytes32[] memory requestHashes);
+    
+    /**
+     * @notice Check if a validation request exists
+     * @param requestHash The request hash
+     * @return exists True if the request has been created
+     */
+    function requestExists(bytes32 requestHash) external view returns (bool exists);
     
     /**
      * @notice Get validation request details

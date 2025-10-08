@@ -340,6 +340,22 @@ contract ReputationRegistryTest is Test {
         reputationRegistry.giveFeedback(agentId, 90, TAG1, TAG2, "", bytes32(0), feedbackAuth);
     }
     
+    function test_GiveFeedback_SelfFeedback_Reverts() public {
+        // Agent owner attempts to give feedback to themselves
+        bytes memory feedbackAuth = _createFeedbackAuth(
+            agentId,
+            agentOwner, // client is the agent owner
+            1,
+            block.timestamp + 1 days,
+            agentOwner,
+            agentOwnerPk
+        );
+        
+        vm.prank(agentOwner);
+        vm.expectRevert("Self-feedback not allowed");
+        reputationRegistry.giveFeedback(agentId, 100, TAG1, TAG2, "", bytes32(0), feedbackAuth);
+    }
+    
     // ============ Revoke Feedback Tests ============
     
     function test_RevokeFeedback_Success() public {
