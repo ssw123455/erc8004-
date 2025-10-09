@@ -3,8 +3,13 @@
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.19-blue)](https://soliditylang.org)
 [![Tests](https://img.shields.io/badge/Tests-79%2F79%20Passing-brightgreen)](https://github.com/ChaosChain/trustless-agents-erc-ri)
+[![Deployed](https://img.shields.io/badge/Deployed-5%20Testnets-success)](https://github.com/ChaosChain/trustless-agents-erc-ri#deployed-contracts)
+[![Networks](https://img.shields.io/badge/Networks-Sepolia%20|%20Base%20|%20Optimism%20|%20Mode%20|%200G-blue)](https://github.com/ChaosChain/trustless-agents-erc-ri#deployed-contracts)
 
 Reference implementation for **[ERC-8004: Trustless Agents](https://eips.ethereum.org/EIPS/eip-8004)** - a protocol enabling participants to discover, choose, and interact with AI agents across organizational boundaries without pre-existing trust.
+
+>  **Ready to Use!** Contracts are live on **5 testnets**. Start building immediately - no deployment needed!  
+> **Same addresses everywhere**: `0x7177...Dd09A` (Identity) | [View All Networks](#deployed-contracts)
 
 ## Table of Contents
 
@@ -52,6 +57,35 @@ ERC-8004 provides three core on-chain registries that enable trustless agent int
 - **Implementation**: [`src/`](./src/)
 - **Tests**: 79/79 passing (100% coverage)
 - **Compliance**: 100% spec compliant
+- **Deployment**: ✅ Live on 5 testnets
+
+### Deployed Contracts
+
+**Contract Addresses** (deterministic - same on all networks):
+
+```
+IdentityRegistry:    0x7177a6867296406881E20d6647232314736Dd09A
+ReputationRegistry:  0xB5048e3ef1DA4E04deB6f7d0423D06F63869e322
+ValidationRegistry:  0x662b40A526cb4017d947e71eAF6753BF3eeE66d8
+```
+
+**Live Networks**:
+
+| Network | Chain ID | Identity | Reputation | Validation |
+|---------|----------|----------|------------|------------|
+| **Ethereum Sepolia** | 11155111 | [View](https://sepolia.etherscan.io/address/0x7177a6867296406881E20d6647232314736Dd09A) | [View](https://sepolia.etherscan.io/address/0xB5048e3ef1DA4E04deB6f7d0423D06F63869e322) | [View](https://sepolia.etherscan.io/address/0x662b40A526cb4017d947e71eAF6753BF3eeE66d8) |
+| **Base Sepolia** | 84532 | [View](https://sepolia.basescan.org/address/0x7177a6867296406881E20d6647232314736Dd09A) | [View](https://sepolia.basescan.org/address/0xB5048e3ef1DA4E04deB6f7d0423D06F63869e322) | [View](https://sepolia.basescan.org/address/0x662b40A526cb4017d947e71eAF6753BF3eeE66d8) |
+| **Optimism Sepolia** | 11155420 | [View](https://sepolia-optimistic.etherscan.io/address/0x7177a6867296406881E20d6647232314736Dd09A) | [View](https://sepolia-optimistic.etherscan.io/address/0xB5048e3ef1DA4E04deB6f7d0423D06F63869e322) | [View](https://sepolia-optimistic.etherscan.io/address/0x662b40A526cb4017d947e71eAF6753BF3eeE66d8) |
+| **Mode Testnet** | 919 | [View](https://sepolia.explorer.mode.network/address/0x7177a6867296406881E20d6647232314736Dd09A) | [View](https://sepolia.explorer.mode.network/address/0xB5048e3ef1DA4E04deB6f7d0423D06F63869e322) | [View](https://sepolia.explorer.mode.network/address/0x662b40A526cb4017d947e71eAF6753BF3eeE66d8) |
+| **0G Testnet** | 16602 | [View](https://chainscan-galileo.0g.ai/address/0x7177a6867296406881E20d6647232314736Dd09A) | [View](https://chainscan-galileo.0g.ai/address/0xB5048e3ef1DA4E04deB6f7d0423D06F63869e322) | [View](https://chainscan-galileo.0g.ai/address/0x662b40A526cb4017d947e71eAF6753BF3eeE66d8) |
+
+>  **Why These Networks?**
+> - **Ethereum Sepolia**: Industry standard testnet
+> - **Base**: Coinbase's L2, ideal for consumer apps
+> - **Optimism**: Leading OP Stack L2
+> - **Mode**: AI-focused L2 with ultra-low gas (5,000x cheaper!)
+> - **0G**: High-performance chain with 2,500 TPS
+
 
 ### Architecture
 
@@ -348,13 +382,39 @@ A web interface for the legacy v0.4 contracts is available:
 
 ## Quick Start
 
-### Prerequisites
+### Start Building Now (No Setup Required!)
+
+**Contracts are already deployed and ready to use!** Just connect to any testnet:
+
+```javascript
+// ethers.js example - works on all 5 testnets
+const identityRegistry = '0x7177a6867296406881E20d6647232314736Dd09A';
+const reputationRegistry = '0xB5048e3ef1DA4E04deB6f7d0423D06F63869e322';
+const validationRegistry = '0x662b40A526cb4017d947e71eAF6753BF3eeE66d8';
+
+// Pick your network:
+// - Sepolia: https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+// - Base: https://sepolia.base.org
+// - Optimism: https://sepolia.optimism.io
+// - Mode: https://sepolia.mode.network (cheapest gas!)
+// - 0G: https://evmrpc-testnet.0g.ai (highest TPS!)
+```
+
+See [Integration Examples](#integration-examples) for complete code samples →
+
+---
+
+### 🛠️ Local Development Setup
+
+For contributing or deploying your own instance:
+
+#### Prerequisites
 
 - [Foundry](https://book.getfoundry.sh/) (for contract development)
 - [Node.js](https://nodejs.org/) 16+ (optional, for web interface)
 - [Git](https://git-scm.com/)
 
-### Installation
+#### Installation
 
 ```bash
 # Clone repository
@@ -365,7 +425,7 @@ cd trustless-agents-erc-ri
 forge install
 ```
 
-### Build
+#### Build
 
 ```bash
 # Compile contracts
@@ -375,7 +435,7 @@ forge build
 forge build --sizes
 ```
 
-### Test
+#### Test
 
 ```bash
 # Run all tests
@@ -396,24 +456,36 @@ forge test --gas-report
 forge snapshot
 ```
 
-### Deploy
+### Deploy to Testnets
+
+Deploy your own instance to any network:
 
 ```bash
-# Configure environment
+# 1. Configure environment variables
 cp .env.example .env
-# Edit .env with your PRIVATE_KEY and RPC_URL
+# Edit .env with your PRIVATE_KEY and RPC URLs
 
-# Deploy all three contracts
+# 2. Deploy to a specific network
+./deploy.sh sepolia          # Ethereum Sepolia
+./deploy.sh base_sepolia     # Base Sepolia
+./deploy.sh optimism_sepolia # Optimism Sepolia
+./deploy.sh mode_testnet     # Mode Testnet (ultra-low gas!)
+./deploy.sh zg_testnet       # 0G Testnet
+
+# 3. Or deploy to all networks at once
+./deploy.sh all
+
+# Manual deployment (any network)
 forge script script/Deploy.s.sol:Deploy \
     --rpc-url $RPC_URL \
     --broadcast \
     --verify
-
-# Deploy individually
-forge script script/Deploy.s.sol:DeployIdentityOnly --rpc-url $RPC_URL --broadcast
-forge script script/Deploy.s.sol:DeployReputationOnly --rpc-url $RPC_URL --broadcast
-forge script script/Deploy.s.sol:DeployValidationOnly --rpc-url $RPC_URL --broadcast
 ```
+
+**Deployment Guides**:
+- [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - Complete multi-chain deployment guide
+- [MODE_DEPLOYMENT.md](./MODE_DEPLOYMENT.md) - Mode Network specific guide
+- [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) - Pre/post deployment checklist
 
 ---
 
@@ -437,7 +509,40 @@ import "trustless-agents-erc-ri/src/interfaces/IValidationRegistry.sol";
 
 ## Integration Examples
 
-### Registering an Agent
+### Quick Start: Using Live Contracts
+
+Try these examples on any of the deployed testnets:
+
+```javascript
+// Using ethers.js v6 with live contracts on Sepolia
+import { ethers } from 'ethers';
+
+// Connect to Sepolia
+const provider = new ethers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY');
+const wallet = new ethers.Wallet('YOUR_PRIVATE_KEY', provider);
+
+// Live IdentityRegistry on Sepolia
+const identityRegistry = new ethers.Contract(
+    '0x7177a6867296406881E20d6647232314736Dd09A',
+    ['function register(string) returns (uint256)',
+     'function tokenURI(uint256) view returns (string)',
+     'function ownerOf(uint256) view returns (address)'],
+    wallet
+);
+
+// Register your first agent!
+const tx = await identityRegistry.register('ipfs://QmYourAgentData...');
+await tx.wait();
+console.log('Agent registered! 🎉');
+```
+
+**Try it on other networks too:**
+- Base Sepolia: `https://sepolia.base.org`
+- Optimism Sepolia: `https://sepolia.optimism.io`
+- Mode Testnet: `https://sepolia.mode.network` (ultra-low gas!)
+- 0G Testnet: `https://evmrpc-testnet.0g.ai`
+
+### Registering an Agent (Solidity)
 
 ```solidity
 // Prepare metadata
@@ -451,7 +556,7 @@ metadata[1] = IIdentityRegistry.MetadataEntry({
     value: abi.encode(agentWalletAddress)
 });
 
-// Register agent
+// Register agent on any network at 0x7177a6867296406881E20d6647232314736Dd09A
 uint256 agentId = identityRegistry.register(
     "ipfs://QmXYZ.../registration.json",
     metadata
@@ -569,6 +674,9 @@ validationRegistry.validationResponse(
 
 ### Test Coverage
 
+All contracts are **100% tested and verified on live testnets**! 
+
+**Unit Tests** (local):
 ```bash
 $ forge test
 
@@ -582,6 +690,15 @@ $ forge test
 
 Total: 79 tests passed, 0 failed, 0 skipped
 ```
+
+**Live Network Tests** (verified):
+- ✅ 5/5 networks tested with real transactions
+- ✅ Agent registration confirmed on all chains
+- ✅ TokenURI retrieval verified
+- ✅ Event emission validated
+- ✅ Gas efficiency confirmed (30% less on L2s)
+
+See [TEST_RESULTS.md](./TEST_RESULTS.md) for complete live testing report.
 
 ### Test Categories
 

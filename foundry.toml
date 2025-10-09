@@ -20,6 +20,8 @@ arbitrum = "${ARBITRUM_RPC_URL}"
 arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
 optimism = "${OPTIMISM_RPC_URL}"
 optimism_sepolia = "${OPTIMISM_SEPOLIA_RPC_URL}"
+mode_testnet = "${MODE_TESTNET_RPC_URL}"
+zg_testnet = "${ZG_TESTNET_RPC_URL}"
 
 # Etherscan verification
 [etherscan]
@@ -31,3 +33,4 @@ arbitrum = { key = "${ARBISCAN_API_KEY}", url = "https://api.arbiscan.io/api" }
 arbitrum_sepolia = { key = "${ARBISCAN_API_KEY}", url = "https://api-sepolia.arbiscan.io/api" }
 optimism = { key = "${OPTIMISTIC_ETHERSCAN_API_KEY}", url = "https://api-optimistic.etherscan.io/api" }
 optimism_sepolia = { key = "${OPTIMISTIC_ETHERSCAN_API_KEY}", url = "https://api-sepolia-optimistic.etherscan.io/api" }
+mode_testnet = { key = "not_required", url = "https://sepolia.explorer.mode.network/api?" }

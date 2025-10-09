@@ -79,6 +79,9 @@ typechain-types/
 # Gas reports
 .gas-snapshot 
 
+# Deployment logs (keep broadcast/ but ignore verbose logs)
+deployment.log
+
 # Documentation
 *.md
 !README.md
