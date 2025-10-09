@@ -52,7 +52,8 @@ contract ReputationRegistryTest is Test {
         address indexed clientAddress,
         uint64 feedbackIndex,
         address indexed responder,
-        string responseUri
+        string responseUri,
+        bytes32 responseHash
     );
 
     function setUp() public {
@@ -429,10 +430,11 @@ contract ReputationRegistryTest is Test {
         
         // Append response
         vm.prank(responder);
+        bytes32 responseHash = keccak256("response");
         vm.expectEmit(true, true, false, true);
-        emit ResponseAppended(agentId, client, 1, responder, RESPONSE_URI);
+        emit ResponseAppended(agentId, client, 1, responder, RESPONSE_URI, responseHash);
         
-        reputationRegistry.appendResponse(agentId, client, 1, RESPONSE_URI, keccak256("response"));
+        reputationRegistry.appendResponse(agentId, client, 1, RESPONSE_URI, responseHash);
     }
     
     function test_AppendResponse_MultipleResponders() public {
