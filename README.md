@@ -2,7 +2,7 @@
 
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.19-blue)](https://soliditylang.org)
-[![Tests](https://img.shields.io/badge/Tests-76%2F76%20Passing-brightgreen)](https://github.com/ChaosChain/trustless-agents-erc-ri)
+[![Tests](https://img.shields.io/badge/Tests-79%2F79%20Passing-brightgreen)](https://github.com/ChaosChain/trustless-agents-erc-ri)
 
 Reference implementation for **[ERC-8004: Trustless Agents](https://eips.ethereum.org/EIPS/eip-8004)** - a protocol enabling participants to discover, choose, and interact with AI agents across organizational boundaries without pre-existing trust.
 
@@ -39,7 +39,7 @@ ERC-8004 provides three core on-chain registries that enable trustless agent int
 - **On-Chain Composability** - Scores and tags accessible to smart contracts
 - **Off-Chain Scalability** - Detailed data stored via URIs (IPFS recommended)
 - **Event-Driven** - Comprehensive events for indexing and aggregation
-- **Production Ready** - 76/76 tests passing, 100% spec compliant
+- **Production Ready** - 79/79 tests passing, 100% spec compliant
 - **Gas Optimized** - IR compiler enabled, efficient storage patterns
 
 ---
@@ -50,7 +50,7 @@ ERC-8004 provides three core on-chain registries that enable trustless agent int
 
 - **Specification**: ERC-8004 v1.0
 - **Implementation**: [`src/`](./src/)
-- **Tests**: 76/76 passing (100% coverage)
+- **Tests**: 79/79 passing (100% coverage)
 - **Compliance**: 100% spec compliant
 
 ### Architecture
@@ -576,11 +576,11 @@ $ forge test
 │ Test Suite             │ Passed │ Failed │ Skipped │
 ├────────────────────────┼────────┼────────┼─────────┤
 │ IdentityRegistry       │   22   │   0    │    0    │
-│ ReputationRegistry     │   25   │   0    │    0    │
-│ ValidationRegistry     │   29   │   0    │    0    │
+│ ReputationRegistry     │   26   │   0    │    0    │
+│ ValidationRegistry     │   31   │   0    │    0    │
 ╰────────────────────────┴────────┴────────┴─────────╯
 
-Total: 76 tests passed, 0 failed, 0 skipped
+Total: 79 tests passed, 0 failed, 0 skipped
 ```
 
 ### Test Categories
@@ -592,16 +592,16 @@ Total: 76 tests passed, 0 failed, 0 skipped
 - Authorization checks
 - Edge cases
 
-**ReputationRegistry (25 tests)**:
+**ReputationRegistry (26 tests)**:
 - Signature verification (EIP-191/ERC-1271)
-- Feedback submission
+- Feedback submission and self-feedback prevention
 - Revocation
 - Response appending
 - Filtering and aggregation
 - Authorization checks
 
-**ValidationRegistry (29 tests)**:
-- Request creation
+**ValidationRegistry (31 tests)**:
+- Request creation and self-validation prevention
 - Response submission
 - Multiple responses
 - Authorization checks
@@ -665,11 +665,31 @@ All signed messages include:
 - Agent existence verification
 - Index bounds checking
 
+### Security Enhancements
+
+Beyond the base ERC-8004 v1.0 specification, this reference implementation includes additional security measures:
+
+#### Self-Feedback Prevention
+The Reputation Registry prevents agents from giving feedback to themselves, ensuring reputation integrity.
+
+#### Self-Validation Prevention
+The Validation Registry prevents agents from validating their own work, enforcing independent verification as intended by the spec.
+
+#### Reentrancy Protection
+The Identity Registry uses OpenZeppelin's `ReentrancyGuard` to prevent reentrancy attacks during agent registration via the `_safeMint` callback.
+
+#### Integrity Hash Emission
+Both Reputation and Validation registries emit `responseHash` in their events, enabling off-chain verification of data integrity for URIs not on content-addressable storage.
+
+#### RequestHash Uniqueness
+The Validation Registry enforces global uniqueness of request hashes to prevent hijacking attacks.
+
 ### Audit Status
 
-- **Self-audited**: Comprehensive test coverage (76/76 tests)
+- **Self-audited**: Comprehensive test coverage (79/79 tests)
 - **Spec compliance**: 100% compliant with ERC-8004 v1.0
-- **External audit**: Not yet conducted (recommended before mainnet deployment)
+- **Security hardened**: 10+ additional protections beyond spec requirements
+- **External audit**: Recommended before mainnet deployment
 
 ---
 

@@ -41,6 +41,7 @@ contract ValidationRegistryTest is Test {
         bytes32 indexed requestHash,
         uint8 response,
         string responseUri,
+        bytes32 responseHash,
         bytes32 tag
     );
 
@@ -128,6 +129,13 @@ contract ValidationRegistryTest is Test {
         validationRegistry.validationRequest(validator, agentId, REQUEST_URI, REQUEST_HASH);
     }
     
+    function test_ValidationRequest_SelfValidation_Reverts() public {
+        // Agent owner tries to validate own work
+        vm.prank(agentOwner);
+        vm.expectRevert("Self-validation not allowed");
+        validationRegistry.validationRequest(agentOwner, agentId, REQUEST_URI, REQUEST_HASH);
+    }
+    
     function test_ValidationRequest_ApprovedOperator_Success() public {
         // Approve operator
         vm.prank(agentOwner);
@@ -164,7 +172,7 @@ contract ValidationRegistryTest is Test {
         // Provide response
         vm.prank(validator);
         vm.expectEmit(true, true, true, true);
-        emit ValidationResponse(validator, agentId, REQUEST_HASH, 100, RESPONSE_URI, TAG);
+        emit ValidationResponse(validator, agentId, REQUEST_HASH, 100, RESPONSE_URI, RESPONSE_HASH, TAG);
         
         validationRegistry.validationResponse(REQUEST_HASH, 100, RESPONSE_URI, RESPONSE_HASH, TAG);
         
