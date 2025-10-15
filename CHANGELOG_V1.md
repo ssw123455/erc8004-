@@ -8,7 +8,7 @@ This is a **complete rewrite** of the ERC-8004 reference implementation to compl
 
 ---
 
-## Breaking Changes from v0.3
+## Breaking Changes from v0.4
 
 ### Identity Registry
 - **Changed**: Now implements **ERC-721 with URIStorage** (was custom identity system)
@@ -94,19 +94,13 @@ This is a **complete rewrite** of the ERC-8004 reference implementation to compl
 - Input validation (score ranges, address checks)
 - Authorization via ERC-721 mechanisms
 
-### Documentation
-- **[v1.0 README](./src/v1/README.md)** - Detailed documentation
-- **[Implementation Status](./src/v1/IMPLEMENTATION_STATUS.md)** - Production readiness
-- **[Spec Compliance Checklist](./src/v1/SPEC_COMPLIANCE_CHECKLIST.md)** - 80+ requirements
-- **[Final Verification Report](./src/v1/FINAL_VERIFICATION_REPORT.md)** - Comprehensive verification
-
 ---
 
 ## Migration Guide
 
 ### For Developers
 
-**v0.3 → v1.0 is a breaking change. You cannot upgrade existing deployments.**
+**v0.4 → v1.0 is a breaking change. You cannot upgrade existing deployments.**
 
 You must:
 1. Deploy new v1.0 contracts
@@ -197,9 +191,6 @@ forge test --match-path test/v1/ValidationRegistry.t.sol
 
 ---
 
-## Known Issues
-
-None. This implementation is production-ready.
 
 ---
 
@@ -214,19 +205,9 @@ None. This implementation is production-ready.
 ## Credits
 
 - **Specification**: ERC-8004 working group
-- **Implementation**: ChaosChain Labs
+- **Implementation**: ChaosChain
 - **Testing**: Comprehensive test suite with 76 tests
 - **Verification**: Line-by-line spec compliance check
-
----
-
-## Links
-
-- **Repository**: [github.com/ChaosChain/trustless-agents-erc-ri](https://github.com/ChaosChain/trustless-agents-erc-ri)
-- **ERC Specification**: [ERC-8004 Trustless Agents v1.0](https://eips.ethereum.org/EIPS/eip-8004)
-- **v1.0 Implementation**: [`src/v1/`](./src/v1/)
-- **v1.0 Tests**: [`test/v1/`](./test/v1/)
-- **Deployment Scripts**: [`script/DeployV1.s.sol`](./script/DeployV1.s.sol)
 
 ---
 
