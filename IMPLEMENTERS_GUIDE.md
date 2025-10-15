@@ -625,14 +625,6 @@ ValidationRegistry:  0x662b40A526cb4017d947e71eAF6753BF3eeE66d8
 
 ---
 
-## Community Resources
-
-- **Spec:** https://eips.ethereum.org/EIPS/eip-8004
-- **Reference Implementation:** [Your GitHub]
-- **Discussions:** [Your Discord/Forum]
-
----
-
 ## Contributing
 
 Found an edge case or have a better approach? We welcome feedback and contributions to improve this guide and the reference implementation.
