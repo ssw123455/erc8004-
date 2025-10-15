@@ -1,6 +1,6 @@
 # ERC-8004 v1.0 Implementer's Guide
 
-> **Reference Implementation**: This guide is based on the production-ready reference implementation by ChaosChain Labs, deployed on 5 testnets with 79/79 tests passing.
+> **Reference Implementation**: This guide is based on the production-ready reference implementation by ChaosChain, deployed on 5 testnets with 79/79 tests passing.
 
 ## Table of Contents
 1. [Overview](#overview)
