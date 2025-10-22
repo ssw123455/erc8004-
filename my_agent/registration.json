@@ -1,0 +1,14 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "myLocalAgent",
+  "description": "A local test agent for ERC-8004 registration",
+  "image": "https://example.com/agentimage.png",
+  "endpoints": [
+    {
+      "name": "A2A",
+      "endpoint": "http://127.0.0.1:3000/agent/card.json",
+      "version": "0.3.0"
+    }
+  ],
+  "supportedTrust": ["reputation"]
+}
