@@ -39,6 +39,9 @@
    （或 `npx serve . -l 3000`）
 
 4. 编辑 `my_agent/registor.js`：
+    运行把项目中的identityRegistry部署至anvil:
+   ```forge script script/Deploy.s.sol:Deploy --rpc-url http://127.0.0.1:8545 --private-key <你的私钥> --broadcast
+   ```
    - 确认 `identityRegistryAddress` 为你部署的合约地址，或改为从配置/环境读取。
    - 脚本已读取 `process.env.PRIVATE_KEY` 和 `process.env.RPC_URL`（如果你接受了自动修改）。
 
@@ -57,6 +60,14 @@
   ```
 - `TypeError: identityRegistry.ownerOf is not a function`：在 ABI 中添加 `function ownerOf(uint256 tokenId) view returns (address)`。
 - ethers v6 注意：`receipt.hash` 包含交易哈希；v5 中为 `receipt.transactionHash`。
+- 运行
+```
+forge script script/Deploy.s.sol:Deploy --rpc-url http://127.0.0.1:8545 --private-key <你的私钥> --broadcast
+```
+之后 我的anvil是如何指导其deploy的地址的?
+
+通过终端输出的:
+IdentityRegistry deployed at: 0x5FbDB2315678afecb367f032d93F642f64180aa3
 
 
 
